@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderState, parseDecision, sanitizeDecision } from './prompt.js';
+import { renderState, parseDecision, sanitizeDecision, fallbackRead } from './prompt.js';
 import { HeuristicAgent } from './heuristic-agent.js';
 import { sanitizeName, ensureUniqueName, nameFromPool, parseName } from './identity.js';
 import { parseTalk, talkFromPool } from './talk.js';
@@ -54,6 +54,9 @@ test('parseDecision 容忍 markdown 与 amount_bb 格式', () => {
   const d3 = parseDecision('{"action"：“raise”，"amount_bb"：8}');
   assert.equal(d3!.action, 'raise');
   assert.equal(d3!.amountBB, 8);
+  // 读牌字段
+  const d4 = parseDecision('{"action":"fold","read":"他3-bet说明大概率是AA/KK","reason":"弃牌"}');
+  assert.equal(d4!.read, '他3-bet说明大概率是AA/KK');
 });
 
 test('parseDecision 拒绝非法 JSON 与非法 action', () => {
@@ -89,6 +92,12 @@ test('heuristic agent 在极端局面不崩溃且决策合法', async () => {
     const d = await agent.decide(makeReq(s));
     assert.ok(['fold', 'check', 'call', 'raise', 'all_in'].includes(d.action), `非法决策: ${d.action}`);
   }
+});
+
+test('fallbackRead 按行动历史生成兜底读牌', () => {
+  assert.ok(fallbackRead(makeReq({ actionHistory: ['对手: 全下 5000'] })).includes('全下'));
+  assert.ok(fallbackRead(makeReq({ actionHistory: ['对手: 加注到 300', '你: 跟注 300', '对手: 加注到 900'] })).includes('连续加注'));
+  assert.ok(fallbackRead(makeReq({ actionHistory: ['对手: 过牌'] })).includes('过牌'));
 });
 
 test('启发式机器人取名：返回合法且唯一的名字', async () => {

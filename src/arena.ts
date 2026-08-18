@@ -287,6 +287,9 @@ export class Arena {
       if (decision.reason) {
         this.emit({ type: 'thinking', playerId: req.playerId, text: decision.reason, model: agent.model });
       }
+      if (decision.read) {
+        this.emit({ type: 'player_read', playerId: req.playerId, text: decision.read, model: agent.model });
+      }
       // applyDecision 返回本次实际投入（换街清零不影响该值）
       const committedAmount = hand.applyDecision(decision);
       // 加注轮结束 → 翻开下一街公共牌时，逐街广播（flop 3 张 → turn 4 张 → river 5 张）

@@ -2,7 +2,7 @@
 
 import { PlayerAgent } from './types.js';
 import { Decision, DecisionRequest } from '../poker/game.js';
-import { buildSystemPrompt, renderState, parseDecision, sanitizeDecision } from './prompt.js';
+import { buildSystemPrompt, renderState, parseDecision, sanitizeDecision, fallbackRead } from './prompt.js';
 import type { ChatMessage, ChatProvider } from '../providers/types.js';
 import { HeuristicAgent } from './heuristic-agent.js';
 import { nameWithProvider } from './identity.js';
@@ -90,7 +90,11 @@ export class LLMAgent implements PlayerAgent {
           // 温度 1.0：决策更富变化、更有进攻性
           const text = await this.provider.chat(messages, { temperature: 1.0, maxTokens: 2500, signal: controller.signal });
           const parsed = parseDecision(text);
-          if (parsed) return sanitizeDecision(ctx, parsed);
+          if (parsed) {
+            // 模型没写读牌时用规则兜底，保证每步都有读牌展示
+            if (!parsed.read) parsed.read = fallbackRead(ctx);
+            return sanitizeDecision(ctx, parsed);
+          }
           if (attempt < this.maxRetries) {
             messages.push({ role: 'assistant', content: text });
             messages.push({ role: 'user', content: '你刚才的输出不是合法 JSON。请只输出：{"action": "...", "amount_bb": 数字, "reason": "可选"}' });

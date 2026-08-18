@@ -30,6 +30,7 @@ export type GameEvent =
   | { type: 'street'; street: Street; cards: string[] }
   | { type: 'actor'; playerId: string; request: DecisionRequest }
   | { type: 'thinking'; playerId: string; text: string; model: string }
+  | { type: 'player_read'; playerId: string; text: string; model: string }
   | { type: 'table_talk'; playerId: string; message: string }
   | {
       type: 'action';

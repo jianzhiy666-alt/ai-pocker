@@ -93,6 +93,8 @@ export interface Decision {
   /** 按规格的 BB 单位版本：本街总投入的 BB 数（与 raiseTo 二选一） */
   amountBB?: number;
   reason?: string;
+  /** 读牌：根据对手行动推断对方手牌范围（可选，供观众/策略参考） */
+  read?: string;
 }
 
 /** 对手公开统计（League 层注入，仅供展示与策略参考） */

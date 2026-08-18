@@ -310,6 +310,8 @@ main {
 .log-line.turn .who { color: #fff; }
 .log-line.talk { background: rgba(91,214,138,0.06); border-left-color: #74c0fc; }
 .log-line.talk .who { color: #74c0fc; }
+.log-line.read { background: rgba(255,146,43,0.08); border-left-color: #ff922b; }
+.log-line.read .who { color: #ff922b; }
 .mode { font-size: 12px; color: var(--gold); font-weight: 700; }
 
 /* 玩家配置弹窗 */

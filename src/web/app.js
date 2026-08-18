@@ -466,6 +466,12 @@ function handleEvent(evt) {
       addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 💭 ${escapeHtml(evt.text)} <span class="sub">· ${evt.model}</span>`, 'thinking');
       break;
     }
+    case 'player_read': {
+      const p = state.players.get(evt.playerId);
+      if (!p) break;
+      addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 🎯 读牌：${escapeHtml(evt.text)}`, 'read');
+      break;
+    }
     case 'table_talk': {
       const p = state.players.get(evt.playerId);
       if (!p) break;
