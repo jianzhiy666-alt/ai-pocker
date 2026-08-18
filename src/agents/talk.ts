@@ -32,7 +32,8 @@ export function parseTalk(text: string): string {
   const end = cleaned.lastIndexOf('}');
   if (start < 0 || end <= start) return '';
   try {
-    const obj = JSON.parse(cleaned.slice(start, end + 1)) as { message?: unknown };
+    const normalized = cleaned.slice(start, end + 1).replace(/[“”]/g, '"').replace(/：/g, ':').replace(/，/g, ',');
+    const obj = JSON.parse(normalized) as { message?: unknown };
     if (typeof obj.message === 'string') {
       return obj.message.replace(/\s+/g, ' ').trim().slice(0, 80);
     }

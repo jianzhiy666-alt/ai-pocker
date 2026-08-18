@@ -50,6 +50,10 @@ test('parseDecision 容忍 markdown 与 amount_bb 格式', () => {
   assert.equal(d!.amountBB, 6);
   const d2 = parseDecision('好的。{"action":"call","reason":"赔率合适"} 结束。');
   assert.deepEqual(d2, { action: 'call', reason: '赔率合适' });
+  // 中文引号（部分模型输出习惯）
+  const d3 = parseDecision('{"action"：“raise”，"amount_bb"：8}');
+  assert.equal(d3!.action, 'raise');
+  assert.equal(d3!.amountBB, 8);
 });
 
 test('parseDecision 拒绝非法 JSON 与非法 action', () => {

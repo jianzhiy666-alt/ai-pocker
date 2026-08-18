@@ -68,14 +68,16 @@ export function renderState(req: DecisionRequest): string {
   return lines.join('\n');
 }
 
-/** 从模型回复中解析决策 JSON（兼容 amount_bb 与 raiseTo） */
+/** 从模型回复中解析决策 JSON（兼容 amount_bb 与 raiseTo，容忍中文引号） */
 export function parseDecision(text: string): Decision | null {
   const cleaned = text.replace(/```json|```/g, '').trim();
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
   try {
-    const obj = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+    // 兼容中文标点（引号/冒号/逗号），部分模型按中文习惯输出 JSON
+    const normalized = cleaned.slice(start, end + 1).replace(/[“”]/g, '"').replace(/：/g, ':').replace(/，/g, ',');
+    const obj = JSON.parse(normalized) as Record<string, unknown>;
     const action = String(obj.action ?? '').toLowerCase();
     const valid = ['fold', 'check', 'call', 'raise', 'all_in'];
     if (!valid.includes(action)) return null;

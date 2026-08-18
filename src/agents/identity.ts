@@ -42,7 +42,8 @@ export function parseName(text: string): string | null {
   const end = cleaned.lastIndexOf('}');
   if (start < 0 || end <= start) return null;
   try {
-    const normalized = cleaned.slice(start, end + 1).replace(/[“”]/g, '"');
+    // 兼容中文标点（引号/冒号/逗号）
+    const normalized = cleaned.slice(start, end + 1).replace(/[“”]/g, '"').replace(/：/g, ':').replace(/，/g, ',');
     const obj = JSON.parse(normalized) as Record<string, unknown>;
     return sanitizeName(obj.name ?? obj.poker_name);
   } catch {
