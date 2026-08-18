@@ -295,6 +295,61 @@ function updateRankings() {
   });
 }
 
+/* ---------- 人类玩家操作面板 ---------- */
+let humanId = null;
+
+function showHumanPanel(req) {
+  const cards = $('#hp-cards');
+  cards.innerHTML = '';
+  for (const c of req.holeCards) cards.appendChild(cardEl(c, false));
+  const streetName = req.street === 'preflop' ? '翻前' : req.street === 'flop' ? '翻牌' : req.street === 'turn' ? '转牌' : '河牌';
+  $('#hp-situation').textContent = `${streetName} · 底池 ${req.pot} · ${req.toCall > 0 ? `需跟 ${req.toCall}` : '免费看牌'}`;
+  $('#hp-fold').style.display = req.legalActions.includes('fold') ? '' : 'none';
+  $('#hp-check').style.display = req.legalActions.includes('check') ? '' : 'none';
+  const hasCall = req.legalActions.includes('call');
+  $('#hp-call').style.display = hasCall ? '' : 'none';
+  if (hasCall) $('#hp-call-amt').textContent = req.toCall;
+  const hasRaise = req.legalActions.includes('raise');
+  $('#hp-raise-wrap').style.display = hasRaise ? '' : 'none';
+  if (hasRaise) {
+    const r = $('#hp-raise');
+    r.min = String(req.minRaiseTo);
+    r.max = String(req.maxRaiseTo);
+    r.value = String(req.minRaiseTo);
+    updateRaiseVal();
+  }
+  $('#hp-allin').style.display = req.legalActions.includes('all_in') ? '' : 'none';
+  $('#human-panel').classList.remove('hidden');
+}
+
+function hideHumanPanel() {
+  $('#human-panel').classList.add('hidden');
+}
+
+function updateRaiseVal() {
+  $('#hp-raise-val').textContent = $('#hp-raise').value;
+}
+
+function submitHuman(action, raiseTo) {
+  fetch('/api/human-action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerId: humanId, action, raiseTo }),
+  })
+    .then((r) => r.json())
+    .then((j) => {
+      if (!j.ok) console.error('提交失败:', j.error);
+    });
+  hideHumanPanel();
+}
+
+$('#hp-fold').addEventListener('click', () => submitHuman('fold'));
+$('#hp-check').addEventListener('click', () => submitHuman('check'));
+$('#hp-call').addEventListener('click', () => submitHuman('call'));
+$('#hp-raise-btn').addEventListener('click', () => submitHuman('raise', Number($('#hp-raise').value)));
+$('#hp-allin').addEventListener('click', () => submitHuman('all_in'));
+$('#hp-raise').addEventListener('input', updateRaiseVal);
+
 /* ---------- 事件处理 ---------- */
 function handleEvent(evt) {
   switch (evt.type) {
@@ -320,6 +375,8 @@ function handleEvent(evt) {
           isDealer: false, isSB: false, isBB: false, lastAction: null, busted: false, isActive: false,
         });
       }
+      humanId = evt.players.find((p) => p.kind === 'human')?.id ?? null;
+      hideHumanPanel();
       state.started = true;
       state.handNumber = 0;
       state.community = [];
@@ -375,6 +432,9 @@ function handleEvent(evt) {
         // 明确提示轮到谁行动（思考中的玩家）
         addLog(`▶ 轮到 <span class="who" style="color:${p.color}">${p.name}</span> 行动…`, 'turn');
       }
+      // 轮到人类 → 显示操作面板
+      if (evt.playerId === humanId) showHumanPanel(evt.request);
+      else hideHumanPanel();
       for (const q of state.players.values()) updateSeat(q);
       break;
     }
@@ -401,6 +461,7 @@ function handleEvent(evt) {
       p.allIn = evt.allIn;
       state.pot = evt.pot;
       updateSeat(p);
+      if (evt.playerId === humanId) hideHumanPanel();
       renderCommunity();
       const actionText = evt.action === 'raise' ? `加注到 ${evt.amount}` : evt.action === 'all_in' ? `全下 ${evt.amount}` : evt.action === 'call' ? `跟注 ${evt.amount}` : evt.action === 'check' ? '过牌' : '弃牌';
       addLog(`<span class="who" style="color:${p.color}">${p.name}</span> ${actionText}`, 'action');

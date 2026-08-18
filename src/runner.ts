@@ -4,8 +4,11 @@ import { EventEmitter } from 'node:events';
 import type { GameEvent } from './events.js';
 import { Arena } from './arena.js';
 import type { PlayerAgent } from './agents/types.js';
+import { HumanAgent } from './agents/human-agent.js';
 import { buildAgents, loadPlayerConfigs } from './agents/factory.js';
 import { config } from './config.js';
+import type { Decision } from './poker/game.js';
+import { sanitizeDecision } from './agents/prompt.js';
 
 export interface RunnerOptions {
   agents: PlayerAgent[];
@@ -53,6 +56,19 @@ export class GameRunner extends EventEmitter {
   reloadAgents(): void {
     this.agents = buildAgents(loadPlayerConfigs());
     this.restart();
+  }
+
+  /** 人类玩家提交决策（UI 操作面板调用） */
+  submitHumanAction(playerId: string, raw: { action: string; raiseTo?: number }): { ok: boolean; error?: string } {
+    const agent = this.agents.find((a) => a.id === playerId && a.kind === 'human') as HumanAgent | undefined;
+    if (!agent) return { ok: false, error: '该座位不是人类玩家' };
+    if (!agent.currentCtx) return { ok: false, error: '当前不轮到你行动' };
+    if (!['fold', 'check', 'call', 'raise', 'all_in'].includes(raw.action)) return { ok: false, error: '非法行动' };
+    const parsed: Decision = { action: raw.action as Decision['action'] };
+    if (typeof raw.raiseTo === 'number' && Number.isFinite(raw.raiseTo)) parsed.raiseTo = Math.round(raw.raiseTo);
+    const decision = sanitizeDecision(agent.currentCtx, parsed);
+    agent.submit(decision);
+    return { ok: true };
   }
 
   private setStatus(s: RunnerStatus): void {

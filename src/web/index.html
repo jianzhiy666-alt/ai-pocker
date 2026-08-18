@@ -61,6 +61,23 @@
     </aside>
   </main>
 
+  <!-- 人类玩家操作面板 -->
+  <div id="human-panel" class="human-panel hidden">
+    <div class="hp-head">🎮 轮到你了！<span id="hp-situation" class="hp-situation"></span></div>
+    <div class="hp-cards" id="hp-cards"></div>
+    <div class="hp-btns">
+      <button id="hp-fold" class="hp-fold">✋ 弃牌</button>
+      <button id="hp-check" class="hp-check">✔ 过牌</button>
+      <button id="hp-call" class="hp-call">跟注 <span id="hp-call-amt"></span></button>
+      <div class="hp-raise-wrap" id="hp-raise-wrap">
+        <input id="hp-raise" type="range" min="0" max="10000" step="20" />
+        <span id="hp-raise-val" class="hp-raise-val"></span>
+        <button id="hp-raise-btn" class="hp-raise">加注</button>
+      </div>
+      <button id="hp-allin" class="hp-allin">💥 全下</button>
+    </div>
+  </div>
+
   <!-- 玩家配置弹窗（点击座位打开） -->
   <div id="player-modal" class="pmodal hidden">
     <div class="pmodal-box">

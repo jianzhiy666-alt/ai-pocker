@@ -1,5 +1,10 @@
 [
   {
+    "id": "human",
+    "name": "你",
+    "provider": "human"
+  },
+  {
     "id": "mistral",
     "name": "Mistral 选手",
     "provider": "openrouter",
@@ -16,12 +21,6 @@
     "name": "Qwen 选手",
     "provider": "openrouter",
     "model": "qwen/qwen3-30b-a3b-instruct-2507"
-  },
-  {
-    "id": "dsv3",
-    "name": "DeepSeek V3 选手",
-    "provider": "openrouter",
-    "model": "deepseek/deepseek-chat-v3-0324"
   },
   {
     "id": "gpt",

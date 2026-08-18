@@ -42,6 +42,21 @@ export function createServer(runner: GameRunner) {
     });
   });
 
+  // 人类玩家行动（UI 操作面板）
+  app.post('/api/human-action', (req, res) => {
+    const { playerId, action, raiseTo } = (req.body ?? {}) as { playerId?: string; action?: string; raiseTo?: number };
+    if (!playerId || !action) {
+      res.status(400).json({ error: '缺少 playerId 或 action' });
+      return;
+    }
+    const r = runner.submitHumanAction(playerId, { action, raiseTo });
+    if (!r.ok) {
+      res.status(400).json({ error: r.error });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
   // 玩家/模型配置管理（网页端点击 AI 头像配置）
   app.get('/api/players', (_req, res) => {
     const players = readPlayers().map((p) => ({ id: p.id, name: p.name, provider: p.provider ?? 'heuristic', model: p.model ?? '' }));
