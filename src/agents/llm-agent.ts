@@ -89,12 +89,19 @@ export class LLMAgent implements PlayerAgent {
           messages.push({ role: 'user', content: `上一步出错（${msg}），请重新输出 JSON 决策。` });
         } else {
           console.warn(`[${this.name}] 模型调用失败(${msg})，本轮由启发式机器人接管`);
-          return this.fallback.decide(ctx);
+          return this.markFallback(await this.fallback.decide(ctx));
         }
       }
     }
     console.warn(`[${this.name}] 连续多次未输出合法 JSON，由启发式机器人接管`);
-    return this.fallback.decide(ctx);
+    return this.markFallback(await this.fallback.decide(ctx));
+  }
+
+  /** 标记启发式接管，避免观众误以为是模型自己的思考 */
+  private markFallback(d: Decision): Decision {
+    if (d.reason) d.reason = `[超时·机器人接管] ${d.reason}`;
+    else d.reason = '[超时·机器人接管]';
+    return d;
   }
 
   /** 每手结束说一句话（纯给观众看） */

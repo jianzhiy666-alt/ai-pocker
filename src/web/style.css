@@ -278,6 +278,8 @@ main {
 .log-line.rename { background: linear-gradient(90deg, rgba(212,175,55,0.2), transparent); border-left-color: var(--gold); }
 .log-line.rename .who { color: #ffd43b; }
 .log-line.identity { background: linear-gradient(90deg, rgba(91,214,138,0.18), transparent); border-left-color: #5bd68a; }
+.log-line.turn { background: rgba(255,255,255,0.04); border-left-color: rgba(255,255,255,0.45); }
+.log-line.turn .who { color: #fff; }
 .log-line.talk { background: rgba(91,214,138,0.06); border-left-color: #74c0fc; }
 .log-line.talk .who { color: #74c0fc; }
 .mode { font-size: 12px; color: var(--gold); font-weight: 700; }

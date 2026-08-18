@@ -241,7 +241,11 @@ function handleEvent(evt) {
     case 'actor': {
       for (const p of state.players.values()) p.isActive = false;
       const p = state.players.get(evt.playerId);
-      if (p) { p.isActive = true; }
+      if (p) {
+        p.isActive = true;
+        // 明确提示轮到谁行动（思考中的玩家）
+        addLog(`▶ 轮到 <span class="who" style="color:${p.color}">${p.name}</span> 行动…`, 'turn');
+      }
       for (const q of state.players.values()) updateSeat(q);
       break;
     }
