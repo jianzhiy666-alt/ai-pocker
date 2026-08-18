@@ -166,3 +166,36 @@ test('翻牌后首个行动者是庄家下家（小盲位）', () => {
   assert.ok(order.length > 0);
   assert.equal(order[0], 'B', '翻牌后第一个行动者应是庄家下家 B(小盲)');
 });
+
+test('无法构成合法加注时降级为跟注（不产生"加注到 0"）', () => {
+  // A/B 大筹码互搏到 1500，C 短码已跟 1500（剩 20）
+  // C 想加注但最小加注额超过可投入上限 → 应降级为跟注/过牌
+  let sawRaise0 = false;
+  const hand = playHand({
+    players: [P('A', 3000), P('B', 3000), P('C', 1520)],
+    dealerIndex: 0,
+    sb: 10,
+    bb: 20,
+    seed: 5,
+    strategy: (req) => {
+      if (req.street === 'preflop') {
+        if (req.playerId === 'A' && req.toCall === 0) return { action: 'raise', raiseTo: 1500 };
+        if (req.playerId === 'B') return { action: 'call' };
+        if (req.playerId === 'C') {
+          // C 面对 1500 只能全下或跟注；强行 raise 极小值
+          return { action: 'raise', raiseTo: req.committed };
+        }
+        return { action: 'call' };
+      }
+      return { action: 'check' };
+    },
+  });
+  for (const p of hand.players) {
+    if (p.id === 'C') {
+      assert.equal(p.lastAction !== 'raise' || p.allIn, true, 'C 不应产生假加注（要么全下要么跟注）');
+      // C 的 committed 要么不变（跟注不了则过牌）要么变多（全下）
+      assert.ok(p.committed >= 0 && Number.isFinite(p.committed));
+    }
+  }
+  assert.ok(!sawRaise0);
+});

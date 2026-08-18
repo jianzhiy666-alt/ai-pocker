@@ -308,7 +308,8 @@ export class PokerHand {
     const legal: ActionType[] = ['fold'];
     if (toCall === 0) legal.push('check');
     else legal.push('call');
-    if (actor.stack > 0 && maxRaiseTo > b.currentBet) legal.push('raise');
+    // 只有能构成合法加注时才提供 raise（最小加注额 ≤ 可投入上限）
+    if (actor.stack > 0 && maxRaiseTo > b.currentBet && minRaiseTo <= maxRaiseTo) legal.push('raise');
     legal.push('all_in');
     return {
       playerId: actor.id,
@@ -404,6 +405,20 @@ export class PokerHand {
       } else {
         const raw = typeof decision.raiseTo === 'number' && Number.isFinite(decision.raiseTo) ? decision.raiseTo : b.currentBet + b.minRaiseInc;
         target = Math.max(b.currentBet + b.minRaiseInc, Math.min(raw, actor.committed + actor.stack));
+        // 防御：无法构成合法加注（目标不超过已投入，或最小加注额超过可投入上限）→ 降级为跟注/过牌
+        if (target <= actor.committed || b.currentBet + b.minRaiseInc > actor.committed + actor.stack) {
+          const pay = Math.min(Math.max(0, b.currentBet - actor.committed), actor.stack);
+          actor.stack -= pay;
+          actor.committed += pay;
+          actor.totalCommitted += pay;
+          if (actor.stack === 0) actor.allIn = true;
+          actor.lastAction = pay === 0 ? 'check' : 'call';
+          b.actionHistory.push(desc(pay === 0 ? '过牌' : `跟注 ${pay}`));
+          b.actedSet.add(idx);
+          b.turnIndex = this.nextActiveAfter(idx);
+          this.advanceToLegalActor();
+          return;
+        }
       }
       const add = target - actor.committed;
       const bet = Math.min(add, actor.stack);
