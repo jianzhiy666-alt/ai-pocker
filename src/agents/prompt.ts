@@ -2,6 +2,7 @@
 
 import type { Decision, DecisionRequest } from '../poker/game.js';
 import { cardId } from '../poker/cards.js';
+import { buildSkillGuide } from './skill-library.js';
 
 export const ACTION_CN: Record<string, string> = {
   fold: '弃牌',
@@ -59,6 +60,11 @@ export function renderState(req: DecisionRequest): string {
   if (req.legalActions.includes('raise')) legal.push(`加注 ${(req.minRaiseTo / bb).toFixed(1)}–${(req.maxRaiseTo / bb).toFixed(1)} BB`);
   if (req.legalActions.includes('all_in')) legal.push('全下');
   lines.push(`合法行动: ${legal.join(' / ')}`);
+  lines.push('');
+  // 技能库建议（专家级策略参考）
+  lines.push(buildSkillGuide(req));
+  lines.push('');
+  lines.push('轮到你行动。请输出 JSON：');
   return lines.join('\n');
 }
 

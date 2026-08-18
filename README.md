@@ -41,6 +41,7 @@ src/
 - **决策与嘴炮完全分离**（独立 API 调用）：模型不会为了说骚话而改变扑克决策
 - **嘴炮纯给观众看**：v0.1 不进任何 AI 的决策上下文，直接规避 prompt injection / context 膨胀
 - **决策输出严格 JSON**：`{"action": "fold|check|call|raise|all_in", "amount_bb": 0}`，amount_bb 是 BB 单位
+- **Skill Library（技能库）**：决策提示词内置专家级策略知识——6-max 各位置翻前起手范围表 + 翻后按成牌强度/底池赔率给指导（简化版 PokerSkill，见 `src/agents/skill-library.ts`），让模型决策"有章可循"
 - **牌力评估复用开源库** [pokersolver](https://github.com/goldfire/pokersolver)；规则引擎自研（13+ 单元测试）
 
 ## 快速开始
