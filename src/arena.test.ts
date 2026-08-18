@@ -68,6 +68,32 @@ test('Arena: 打到最后一人获胜，冠军与排名正确', async () => {
   assert.ok(talks > 0, '应有嘴炮事件');
 });
 
+test('Arena: 末尾淘汰——每 N 手淘汰筹码最少者，与清零淘汰并行', async () => {
+  const agents = Array.from({ length: 6 }, (_, i) => new HeuristicAgent({ id: `p${i}`, name: `P${i + 1}`, seed: i + 1 }));
+  const events: GameEvent[] = [];
+  const arena = new Arena({
+    agents, bb: 20, startingStackBB: 100, handDelayMs: 0, actionDelayMs: 0,
+    eliminateBottomEvery: 3, // 每 3 手末尾淘汰
+    maxHands: 30, onEvent: (e) => events.push(e),
+  });
+  await arena.run();
+
+  const busts = events.filter((e) => e.type === 'player_busted') as { playerId: string; reason: string; rank: number }[];
+  const bottom = busts.filter((b) => b.reason === 'bottom');
+  const chips = busts.filter((b) => b.reason === 'chips');
+  console.log(`末尾淘汰 ${bottom.length} 次 | 清零淘汰 ${chips.length} 次`);
+  assert.ok(bottom.length >= 2, '应有末尾淘汰发生');
+  // 末尾淘汰发生在第 3/6/9... 手之后（handNumber % 3 === 0）
+  const handEnds = events.filter((e) => e.type === 'hand_end');
+  assert.ok(handEnds.length >= 3);
+  // 排名最终连续
+  const end = events.find((e) => e.type === 'tournament_end') as { standings: { rank: number }[] } | undefined;
+  if (end) {
+    const ranks = end.standings.map((s) => s.rank).sort((a, b) => a - b);
+    assert.deepEqual(ranks, [1, 2, 3, 4, 5, 6]);
+  }
+});
+
 test('Arena: 每手结束嘴炮不进决策上下文', async () => {
   const { events, arena } = makeArena(10);
   await arena.run();

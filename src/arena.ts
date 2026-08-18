@@ -47,6 +47,8 @@ export interface ArenaOptions {
   actionDelayMs: number;
   /** 跑满 N 手后自动停止（测试用；缺省打到出冠军） */
   maxHands?: number;
+  /** 每 N 手末尾淘汰筹码最少者（与筹码清零并行；缺省不开启） */
+  eliminateBottomEvery?: number;
   onEvent: (evt: GameEvent) => void;
   rng?: () => number;
 }
@@ -100,6 +102,26 @@ export class Arena {
     const a = this.opts.agents.find((x) => x.id === id);
     if (!a) throw new Error(`未知玩家: ${id}`);
     return a;
+  }
+
+  /** 比赛形势文本：淘汰赛压力（排名 + 末尾淘汰倒计时），让 AI 有必须赢的紧迫感 */
+  private tournamentInfoFor(playerId: string, hand: PokerHand): string {
+    const every = this.opts.eliminateBottomEvery ?? 0;
+    const aliveStacks = this.aliveIds.map((id) => ({ id, stack: this.stacks.get(id) ?? 0 }));
+    const sorted = [...aliveStacks].sort((a, b) => b.stack - a.stack);
+    const rank = sorted.findIndex((x) => x.id === playerId) + 1;
+    const total = aliveStacks.length;
+    const parts: string[] = [
+      `【比赛形势】第 ${this.handNumber} 手 | 存活 ${total} 人 | 你的筹码排名第 ${rank}/${total}`,
+    ];
+    if (every > 0 && total > 1) {
+      const handsUntil = every - (this.handNumber % every || every);
+      parts.push(`⚡ 淘汰赛规则：每 ${every} 手末尾淘汰筹码最少者！距离下次末尾淘汰还有 ${handsUntil} 手`);
+      if (rank === total) parts.push('🚨 警告：你目前是全场筹码最少者，下一轮末尾淘汰随时可能出局！必须主动赢下底池！');
+      else if (rank >= total - 1) parts.push('⚠️ 你处于垫底边缘，必须积极入池翻盘，保底弃牌等于慢性死亡！');
+    }
+    parts.push('目标是成为最后存活的赢家，冠军独享全部筹码和冠军奖杯——你必须赢！');
+    return parts.join('\n');
   }
 
   /** 按街广播公共牌：flop 3 张 → turn 4 张 → river 5 张（每街只发一次） */
@@ -235,6 +257,8 @@ export class Arena {
       if (this.stopRequested) break;
       const req = hand.buildDecisionRequest();
       if (!req) break;
+      // 注入比赛形势：淘汰压力（让 AI 有必须赢的紧迫感）
+      req.tournamentInfo = this.tournamentInfoFor(req.playerId, hand);
       this.emit({ type: 'actor', playerId: req.playerId, request: req });
       const agent = this.agentById(req.playerId);
       const decision = await agent.decide(req);
@@ -298,10 +322,22 @@ export class Arena {
     const bustedNow = this.aliveIds.filter((id) => !newAlive.includes(id));
     let rankCounter = this.aliveIds.length;
     for (const id of bustedNow) {
-      this.emit({ type: 'player_busted', playerId: id, rank: rankCounter, finalStack: 0 });
+      this.emit({ type: 'player_busted', playerId: id, rank: rankCounter, finalStack: 0, reason: 'chips' });
       rankCounter--;
     }
     this.aliveIds = newAlive;
+
+    // 末尾淘汰：每 N 手淘汰筹码最少者（与筹码清零并行）
+    const every = this.opts.eliminateBottomEvery ?? 0;
+    if (every > 0 && this.handNumber % every === 0 && this.aliveIds.length > 1) {
+      const bottom = [...this.aliveIds].sort((a, b) => (this.stacks.get(a) ?? 0) - (this.stacks.get(b) ?? 0))[0]!;
+      if ((this.stacks.get(bottom) ?? 0) > 0) {
+        this.bustedOrder.push(bottom);
+        const rank = this.aliveIds.length;
+        this.emit({ type: 'player_busted', playerId: bottom, rank, finalStack: this.stacks.get(bottom) ?? 0, reason: 'bottom' });
+        this.aliveIds = this.aliveIds.filter((id) => id !== bottom);
+      }
+    }
 
     // 每手结束：存活 AI 各说一句话（纯给观众看）
     if (!this.stopRequested) {

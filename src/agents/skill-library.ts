@@ -25,11 +25,21 @@ const PREFLOP_RANGES: Record<string, string> = {
 /** 翻前技能库建议 */
 function preflopGuide(req: DecisionRequest): string {
   const range = PREFLOP_RANGES[req.position] ?? PREFLOP_RANGES['庄位(BTN)']!;
+  const cheap = req.toCall > 0 && req.toCall <= req.bb * 2.5;
+  const goodPos = req.position.includes('庄') || req.position.includes('关位');
   const lines = [
     '【技能库·翻前范围】',
     range,
     '提示：位置越靠后范围越宽；面对加注收紧范围；筹码越浅（低于 20 BB）越倾向全下或弃牌。',
   ];
+  // 观赏性补充：小同花/同花连牌在位置好且成本低时可以入池赌听花
+  if (goodPos && cheap) {
+    lines.push('补充：你现在位置好且跟注成本不高（≤2.5 BB），小同花牌、同花连牌、连张牌（如 37s、68s、T9s）都可以跟注看翻牌赌听花/顺子，这很划算。');
+  } else if (cheap) {
+    lines.push('补充：跟注成本不高（≤2.5 BB），但位置一般；同花连牌/口袋对可以跟注看翻牌，杂乱小牌谨慎。');
+  } else {
+    lines.push('补充：跟注成本较高（>2.5 BB），小牌不值得看翻牌，只有符合范围的牌才继续。');
+  }
   return lines.join('\n');
 }
 

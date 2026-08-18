@@ -49,6 +49,6 @@ export type GameEvent =
       pots: { amount: number; winners: { playerId: string; amount: number }[] }[];
     }
   | { type: 'hand_end'; handNumber: number; players: TablePlayerView[] }
-  | { type: 'player_busted'; playerId: string; rank: number; finalStack: number }
+  | { type: 'player_busted'; playerId: string; rank: number; finalStack: number; reason?: 'chips' | 'bottom' }
   | { type: 'tournament_end'; championId: string; standings: { playerId: string; name: string; stack: number; rank: number; kind: string; model: string }[] }
   | { type: 'note'; text: string };

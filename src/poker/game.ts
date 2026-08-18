@@ -82,6 +82,8 @@ export interface DecisionRequest {
   publicEvents?: string[];
   /** 对手公开统计 */
   opponentStats?: OpponentStat[];
+  /** 比赛形势（淘汰赛压力/排名，由 Arena 注入） */
+  tournamentInfo?: string;
 }
 
 export interface Decision {

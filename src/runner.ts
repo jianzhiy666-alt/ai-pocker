@@ -74,6 +74,7 @@ export class GameRunner extends EventEmitter {
       startingStackBB: config.startingStackBB,
       handDelayMs: config.handDelayMs / this.speed,
       actionDelayMs: config.actionDelayMs / this.speed,
+      eliminateBottomEvery: config.eliminateBottomEvery,
       onEvent: this.handleEvent,
     });
     this.arena.run().catch((err) => {

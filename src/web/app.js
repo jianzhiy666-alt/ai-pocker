@@ -416,7 +416,8 @@ function handleEvent(evt) {
       p.rank = evt.rank;
       updateSeat(p);
       updateRankings();
-      addLog(`💀 <span class="who" style="color:${p.color}">${p.name}</span> 筹码清零，被淘汰（第 ${evt.rank} 名）`, 'bust');
+      const reasonText = evt.reason === 'bottom' ? '每 5 手末尾淘汰' : '筹码清零';
+      addLog(`${evt.reason === 'bottom' ? '🪓' : '💀'} <span class="who" style="color:${p.color}">${p.name}</span> 被淘汰（第 ${evt.rank} 名）· ${reasonText}`, 'bust');
       break;
     }
     case 'player_renamed': {
