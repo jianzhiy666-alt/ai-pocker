@@ -167,6 +167,26 @@ test('翻牌后首个行动者是庄家下家（小盲位）', () => {
   assert.equal(order[0], 'B', '翻牌后第一个行动者应是庄家下家 B(小盲)');
 });
 
+test('跨街后 committed 清零（加注以新街为基准）', () => {
+  const hand = new PokerHand({ players: [P('A'), P('B')], dealerIndex: 0, sb: 10, bb: 20, handNumber: 1, blindLevel: 0, rng: () => 0.5 });
+  hand.deal();
+  // A(小盲) 补足盲注，B(大盲) 过牌 → 进入翻牌
+  hand.applyDecision({ action: 'call' });
+  hand.applyDecision({ action: 'check' });
+  // 翻牌后第一行动者是大盲 B（庄家下家），先过牌
+  hand.applyDecision({ action: 'check' });
+  const req = hand.buildDecisionRequest();
+  assert.ok(req, '翻牌后应轮到行动');
+  assert.equal(req!.playerId, 'A', 'B 过牌后轮到 A');
+  const a = hand.players.find((p) => p.id === 'A')!;
+  assert.equal(a.committed, 0, '翻牌后本街投入应清零');
+  assert.equal(req!.committed, 0);
+  // 翻牌后加注 200（新街总额 200）应构成合法加注，而非被降级
+  hand.applyDecision({ action: 'raise', raiseTo: 200 });
+  assert.equal(a.lastAction, 'raise', '加注应生效');
+  assert.equal(a.committed, 200);
+});
+
 test('无法构成合法加注时降级为跟注（不产生"加注到 0"）', () => {
   // A/B 大筹码互搏到 1500，C 短码已跟 1500（剩 20）
   // C 想加注但最小加注额超过可投入上限 → 应降级为跟注/过牌

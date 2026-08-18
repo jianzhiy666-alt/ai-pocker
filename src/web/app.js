@@ -310,8 +310,10 @@ function updateRankings() {
 
 /* ---------- 人类玩家操作面板 ---------- */
 let humanId = null;
+let hpRequest = null;
 
 function showHumanPanel(req) {
+  hpRequest = req;
   const cards = $('#hp-cards');
   cards.innerHTML = '';
   for (const c of req.holeCards) cards.appendChild(cardEl(c, false));
@@ -340,7 +342,9 @@ function hideHumanPanel() {
 }
 
 function updateRaiseVal() {
-  $('#hp-raise-val').textContent = $('#hp-raise').value;
+  const v = Number($('#hp-raise').value);
+  const extra = hpRequest ? v - hpRequest.committed : 0;
+  $('#hp-raise-val').textContent = `加注到 ${v}${extra > 0 ? `（再投 ${extra}）` : ''}`;
 }
 
 function submitHuman(action, raiseTo) {

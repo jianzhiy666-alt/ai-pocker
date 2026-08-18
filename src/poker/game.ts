@@ -213,6 +213,10 @@ export class PokerHand {
       actionHistory: [],
       turnIndex: -1,
     };
+    // 非翻前街：本街投入清零（上一街的下注不带入新街）；翻前保留盲注
+    if (street !== 'preflop') {
+      for (const p of this.players) p.committed = 0;
+    }
     if (street === 'preflop') {
       b.currentBet = Math.max(...this.players.map((p) => p.committed));
       const bbIdx = this.players.findIndex((p) => p.isBB);
