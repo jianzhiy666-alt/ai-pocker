@@ -67,6 +67,22 @@ function cardEl(card, small) {
   return div;
 }
 
+function cardBackEl() {
+  const d = document.createElement('div');
+  d.className = 'card small back';
+  return d;
+}
+
+/* 渲染座位底牌：有人类玩家时隐藏 AI 底牌（公平对战），摊牌时(force)亮牌 */
+function renderHole(seat, p, force = false) {
+  const hole = seat.querySelector('.hole');
+  hole.innerHTML = '';
+  const hide = state.humanId && p.id !== state.humanId && !force;
+  for (const c of p.hole) {
+    hole.appendChild(hide ? cardBackEl() : cardEl(c, true));
+  }
+}
+
 function renderSeats() {
   const seats = $('#seats');
   seats.innerHTML = '';
@@ -231,22 +247,19 @@ function updateSeat(p) {
     bet.style.display = 'none';
   }
   const hole = seat.querySelector('.hole');
-  hole.innerHTML = '';
-  for (const c of p.hole) hole.appendChild(cardEl(c, true));
+  renderHole(seat, p);
   if (p.hole.length === 2 && !seat.querySelector('.hole .card.back')) {
     // 补齐两张
   }
 }
 
-function setHoleCards(playerId, cards) {
+function setHoleCards(playerId, cards, force = false) {
   const p = state.players.get(playerId);
   if (!p) return;
   p.hole = cards;
   const seat = document.getElementById(`seat-${playerId}`);
   if (!seat) return;
-  const hole = seat.querySelector('.hole');
-  hole.innerHTML = '';
-  for (const c of cards) hole.appendChild(cardEl(c, true));
+  renderHole(seat, p, force);
 }
 
 function renderCommunity() {
@@ -473,7 +486,7 @@ function handleEvent(evt) {
       renderCommunity();
       for (const r of evt.results) {
         const p = state.players.get(r.playerId);
-        if (p) { setHoleCards(r.playerId, r.holeCards); if (r.hand) addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 亮牌: ${escapeHtml(r.hand)}`, 'showdown'); }
+        if (p) { setHoleCards(r.playerId, r.holeCards, true); if (r.hand) addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 亮牌: ${escapeHtml(r.hand)}`, 'showdown'); }
       }
       for (const w of evt.winners) {
         const p = state.players.get(w.playerId);
