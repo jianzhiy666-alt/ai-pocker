@@ -287,9 +287,8 @@ export class Arena {
       if (decision.reason) {
         this.emit({ type: 'thinking', playerId: req.playerId, text: decision.reason, model: agent.model });
       }
-      const actorBefore = hand.players.find((p) => p.id === req.playerId)!;
-      const committedBefore = actorBefore.committed;
-      hand.applyDecision(decision);
+      // applyDecision 返回本次实际投入（换街清零不影响该值）
+      const committedAmount = hand.applyDecision(decision);
       // 加注轮结束 → 翻开下一街公共牌时，逐街广播（flop 3 张 → turn 4 张 → river 5 张）
       this.markStreets(hand);
       const actor = hand.players.find((p) => p.id === req.playerId)!;
@@ -297,7 +296,7 @@ export class Arena {
         type: 'action',
         playerId: req.playerId,
         action: actor.lastAction ?? 'call',
-        amount: Math.round(actor.committed - committedBefore),
+        amount: committedAmount,
         reason: decision.reason,
         stack: actor.stack,
         committed: actor.committed,

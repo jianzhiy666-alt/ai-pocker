@@ -370,7 +370,8 @@ export class PokerHand {
     return `位置${off}`;
   }
 
-  applyDecision(decision: Decision): void {
+  /** 应用玩家决策，返回本次实际投入的筹码数（用于事件展示，不受换街清零影响） */
+  applyDecision(decision: Decision): number {
     const actor = this.currentActor;
     const b = this.betting!;
     if (!actor) throw new Error('当前没有需要行动的玩家');
@@ -386,7 +387,7 @@ export class PokerHand {
       b.actedSet.add(idx);
       b.turnIndex = this.nextActiveAfter(idx);
       this.advanceToLegalActor();
-      return;
+      return 0;
     }
     if (action === 'check' && toCall > 0) action = 'call';
     if (action === 'check' || action === 'call') {
@@ -400,7 +401,7 @@ export class PokerHand {
       b.actedSet.add(idx);
       b.turnIndex = this.nextActiveAfter(idx);
       this.advanceToLegalActor();
-      return;
+      return pay;
     }
     if (action === 'raise' || action === 'all_in') {
       let target: number;
@@ -421,7 +422,7 @@ export class PokerHand {
           b.actedSet.add(idx);
           b.turnIndex = this.nextActiveAfter(idx);
           this.advanceToLegalActor();
-          return;
+          return pay;
         }
       }
       const add = target - actor.committed;
@@ -443,7 +444,7 @@ export class PokerHand {
       b.actionHistory.push(desc(isAllIn ? `全下 ${target}` : `加注到 ${target}`));
       b.turnIndex = this.nextActiveAfter(idx);
       this.advanceToLegalActor();
-      return;
+      return bet;
     }
     throw new Error(`非法行动: ${decision.action}`);
   }
