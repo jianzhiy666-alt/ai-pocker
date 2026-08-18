@@ -137,13 +137,30 @@ test('Arena: 每淘汰 1 位选手盲注升一档', async () => {
   assert.equal(blindChanges[0]!.bb, 100);
 });
 
-test('Arena: 每手结束嘴炮不进决策上下文', async () => {
+test('Arena: 对手统计与嘴炮历史注入决策上下文', async () => {
+  const agents = Array.from({ length: 4 }, (_, i) => new HeuristicAgent({ id: `p${i}`, name: `P${i + 1}`, seed: i + 1 }));
+  const events: GameEvent[] = [];
+  const arena = new Arena({ agents, bb: 20, startingStackBB: 100, handDelayMs: 0, actionDelayMs: 0, maxHands: 14, onEvent: (e) => events.push(e) });
+  await arena.run();
+
+  const actors = events.filter((e) => e.type === 'actor');
+  const withStats = actors.filter((a) => (a.request.opponentStats ?? []).length > 0);
+  const withTalk = actors.filter((a) => (a.request.tableTalk ?? []).length > 0);
+  console.log(`actor ${actors.length} | 带统计 ${withStats.length} | 带嘴炮 ${withTalk.length}`);
+  assert.ok(withStats.length > 0, '应注入对手统计');
+  if (withStats[0]) {
+    const s = withStats[0].request.opponentStats?.[0];
+    assert.ok(s && typeof s.vpip === 'number' && typeof s.pfr === 'number', '统计字段完整');
+  }
+  assert.ok(withTalk.length > 0, '应注入嘴炮历史');
+});
+
+test('Arena: 公开事件记忆暂未注入（v0.3 再做）', async () => {
   const { events, arena } = makeArena(10);
   await arena.run();
   for (const e of events) {
     if (e.type === 'actor') {
-      assert.equal(e.request.tableTalk, undefined, 'v0.1 决策上下文不含嘴炮');
-      assert.equal(e.request.publicEvents, undefined, 'v0.1 决策上下文不含公开事件记忆');
+      assert.equal(e.request.publicEvents, undefined, '公开事件记忆尚未实现');
     }
   }
 });

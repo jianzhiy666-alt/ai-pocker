@@ -67,6 +67,12 @@ export class Arena {
   private bustedOrder: string[] = [];
   /** 盲注档位：每淘汰 1 人 +1（6 人时 0 档） */
   private blindLevel = 0;
+  /** 对手公开统计（VPIP/PFR/净盈亏，注入 AI 决策） */
+  private stats = new Map<string, { hands: number; vpip: number; pfr: number; netBB: number }>();
+  /** 每手内的翻前动作标记（VPIP/PFR 统计） */
+  private handFlags = new Map<string, { vpip: boolean; pfr: boolean }>();
+  /** 嘴炮历史（注入 AI 决策，供心理战） */
+  private talkHistory: string[] = [];
   /** 本手已广播的公共牌街（flop/turn/river），每手重置 */
   private shownStreets = new Set<string>();
   private rng: () => number;
@@ -114,6 +120,28 @@ export class Arena {
     const mult = BLIND_MULTIPLIERS[Math.min(this.blindLevel, BLIND_MULTIPLIERS.length - 1)]!;
     const bb = Math.round(this.opts.bb * mult);
     return { sb: Math.round(bb / 2), bb };
+  }
+
+  /** 对手公开统计（供 AI 决策参考） */
+  private buildStats(): NonNullable<import('./poker/game.js').DecisionRequest['opponentStats']> {
+    return this.opts.agents
+      .filter((a) => this.stats.has(a.id))
+      .map((a) => {
+        const s = this.stats.get(a.id)!;
+        return {
+          name: a.currentName,
+          hands: s.hands,
+          vpip: s.hands ? (s.vpip / s.hands) * 100 : 0,
+          pfr: s.hands ? (s.pfr / s.hands) * 100 : 0,
+          netBB: s.netBB,
+        };
+      });
+  }
+
+  /** 记录一条嘴炮（供后续决策上下文） */
+  private recordTalk(agent: PlayerAgent, message: string): void {
+    this.talkHistory.push(`${agent.currentName}: ${message}`);
+    if (this.talkHistory.length > 40) this.talkHistory.shift();
   }
 
   /** 每淘汰 1 人，盲注升一档 */
@@ -173,6 +201,9 @@ export class Arena {
     this.handNumber = 0;
     this.blindLevel = 0;
     this.bustedOrder = [];
+    this.stats.clear();
+    this.talkHistory = [];
+    this.handFlags.clear();
     this.stacks.clear();
     this.aliveIds = this.opts.agents.map((a) => a.id);
     for (const a of this.opts.agents) this.stacks.set(a.id, this.opts.startingStackBB * this.opts.bb);
@@ -253,6 +284,8 @@ export class Arena {
     });
     hand.deal();
     this.shownStreets.clear();
+    this.handFlags.clear();
+    for (const a of this.opts.agents) this.handFlags.set(a.id, { vpip: false, pfr: false });
 
     const view = (): TablePlayerView[] =>
       hand.players.map((p) => ({
@@ -279,11 +312,22 @@ export class Arena {
       if (this.stopRequested) break;
       const req = hand.buildDecisionRequest();
       if (!req) break;
+      // 注入对手统计与嘴炮历史（心理战信息）
+      req.opponentStats = this.buildStats();
+      req.tableTalk = [...this.talkHistory.slice(-10)];
       // 注入比赛形势：淘汰压力（让 AI 有必须赢的紧迫感）
       req.tournamentInfo = this.tournamentInfoFor(req.playerId, hand);
       this.emit({ type: 'actor', playerId: req.playerId, request: req });
       const agent = this.agentById(req.playerId);
       const decision = await agent.decide(req);
+      // 统计翻前 VPIP/PFR
+      if (req.street === 'preflop') {
+        const f = this.handFlags.get(req.playerId);
+        if (f) {
+          if (decision.action === 'call' || decision.action === 'raise' || decision.action === 'all_in') f.vpip = true;
+          if (decision.action === 'raise' || decision.action === 'all_in') f.pfr = true;
+        }
+      }
       if (decision.reason) {
         this.emit({ type: 'thinking', playerId: req.playerId, text: decision.reason, model: agent.model });
       }
@@ -335,8 +379,17 @@ export class Arena {
       resultText = `${winner.currentName} 赢下 ${potBB.toFixed(1)} BB 底池${w.hand ? `（${w.hand}）` : ''}`;
     }
 
-    // 结算筹码
-    for (const p of hand.players) this.stacks.set(p.id, p.stack);
+    // 结算筹码 + 更新对手统计（VPIP/PFR/净盈亏）
+    for (const p of hand.players) {
+      this.stacks.set(p.id, p.stack);
+      const s = this.stats.get(p.id) ?? { hands: 0, vpip: 0, pfr: 0, netBB: 0 };
+      s.hands++;
+      const f = this.handFlags.get(p.id);
+      if (f?.vpip) s.vpip++;
+      if (f?.pfr) s.pfr++;
+      s.netBB += (p.stack - seeds.find((x) => x.id === p.id)!.stack) / bb;
+      this.stats.set(p.id, s);
+    }
     this.emit({ type: 'hand_end', handNumber: this.handNumber, players: view() });
 
     // 淘汰 0 BB 的玩家（排名：从当前人数开始递减，保证最终 1..N 连续）
@@ -371,13 +424,16 @@ export class Arena {
     const eliminatedCount = bustedNow.length + (bottomEliminated ? 1 : 0);
     for (let i = 0; i < eliminatedCount; i++) this.raiseBlinds();
 
-    // 每手结束：存活 AI 各说一句话（纯给观众看）
+    // 每手结束：存活 AI 各说一句话（记录进嘴炮历史，供后续决策的心理战）
     if (!this.stopRequested) {
       const situation = `第 ${this.handNumber} 手结束，${resultText || '无人摊牌'}。`;
       for (const id of this.aliveIds) {
         const agent = this.agentById(id);
         const msg = await agent.talk({ playerName: agent.currentName, situation });
-        if (msg) this.emit({ type: 'table_talk', playerId: id, message: msg });
+        if (msg) {
+          this.recordTalk(agent, msg);
+          this.emit({ type: 'table_talk', playerId: id, message: msg });
+        }
       }
     }
   }
