@@ -78,3 +78,40 @@ test('Arena: 每手结束嘴炮不进决策上下文', async () => {
     }
   }
 });
+
+test('Arena: 规则规范——flop/turn/river 逐街开牌，每街之间有下注轮', async () => {
+  const { events, arena } = makeArena(12);
+  await arena.run();
+
+  const hands = new Map<number, { streets: { street: string; cards: string[] }[]; actions: number; showdown: boolean }>();
+  let currentHandNo = 0;
+  for (const e of events) {
+    if (e.type === 'hand_start') {
+      currentHandNo = e.handNumber;
+      hands.set(e.handNumber, { streets: [], actions: 0, showdown: false });
+      continue;
+    }
+    const h = hands.get(currentHandNo);
+    if (!h) continue;
+    if (e.type === 'street') h.streets.push({ street: e.street, cards: e.cards });
+    else if (e.type === 'action') h.actions++;
+    else if (e.type === 'showdown') h.showdown = true;
+  }
+
+  assert.ok(hands.size >= 5, `应有足够手牌样本，实际 ${hands.size}`);
+  let checked = 0;
+  for (const [handNo, h] of hands) {
+    // 打到摊牌的手：必须依次经历 flop(3张) → turn(4张) → river(5张)
+    if (!h.showdown) continue;
+    checked++;
+    const names = h.streets.map((s) => s.street);
+    const sizes = h.streets.map((s) => s.cards.length);
+    assert.deepEqual(names, ['flop', 'turn', 'river'], `第 ${handNo} 手翻牌顺序错误: ${names.join('→')}`);
+    assert.deepEqual(sizes, [3, 4, 5], `第 ${handNo} 手公共牌张数错误: ${sizes.join(',')}`);
+    // flop 翻出后、river 翻出前都有行动轮（下注轮之间必须有行动）
+    assert.ok(h.actions >= 4, `第 ${handNo} 手行动过少: ${h.actions} 次`);
+    // 公共牌与手牌开始时的底牌不冲突（牌组合法性由引擎保证）
+    for (const s of h.streets) assert.equal(s.cards.length, new Set(s.cards).size, '公共牌不应重复');
+  }
+  assert.ok(checked >= 1, '至少应有一手走到摊牌来验证翻牌顺序');
+});

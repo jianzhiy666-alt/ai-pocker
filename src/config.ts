@@ -11,7 +11,7 @@ export const PLAYERS_PATH = path.join(ROOT, 'config', 'players.json');
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** 大盲筹码值（v0.1：SB = 0.5 BB，初始 100 BB，固定不涨） */
-  bb: Number(process.env.BB ?? 20),
+  bb: Number(process.env.BB ?? 100),
   startingStackBB: Number(process.env.STARTING_STACK_BB ?? 100),
   handDelayMs: Number(process.env.HAND_DELAY_MS ?? 900),
   actionDelayMs: Number(process.env.ACTION_DELAY_MS ?? 700),

@@ -45,11 +45,11 @@ export class LLMAgent implements PlayerAgent {
     return name;
   }
 
-  /** 健康检查：模型是否可用（启动时探测） */
+  /** 健康检查：模型是否可用（启动时探测；给推理型模型留足时间） */
   async ping(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 20_000);
+      const timer = setTimeout(() => controller.abort(), 45_000);
       try {
         await this.provider.chat([{ role: 'user', content: 'ping' }], { maxTokens: 5, signal: controller.signal });
         return true;
@@ -72,7 +72,8 @@ export class LLMAgent implements PlayerAgent {
         const timer = setTimeout(() => controller.abort(), this.timeoutMs);
         try {
           // 推理型模型（minimax/longcat 等）的 reasoning 会占用大量 token，给足预算
-          const text = await this.provider.chat(messages, { temperature: 0.2, maxTokens: 2500, signal: controller.signal });
+          // 温度 1.0：决策更富变化、更有进攻性
+          const text = await this.provider.chat(messages, { temperature: 1.0, maxTokens: 2500, signal: controller.signal });
           const parsed = parseDecision(text);
           if (parsed) return sanitizeDecision(ctx, parsed);
           if (attempt < this.maxRetries) {
@@ -87,10 +88,12 @@ export class LLMAgent implements PlayerAgent {
         if (attempt < this.maxRetries) {
           messages.push({ role: 'user', content: `上一步出错（${msg}），请重新输出 JSON 决策。` });
         } else {
+          console.warn(`[${this.name}] 模型调用失败(${msg})，本轮由启发式机器人接管`);
           return this.fallback.decide(ctx);
         }
       }
     }
+    console.warn(`[${this.name}] 连续多次未输出合法 JSON，由启发式机器人接管`);
     return this.fallback.decide(ctx);
   }
 

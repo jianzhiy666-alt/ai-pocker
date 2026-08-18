@@ -76,22 +76,22 @@ export class HeuristicAgent implements PlayerAgent {
     if (ctx.street === 'preflop') {
       const chen = chenFormula(ctx.holeCards) + noise();
       const inBB = ctx.position.includes('大盲');
-      if (chen >= 9) return { action: legal.includes('raise') ? 'raise' : 'all_in', raiseTo: Math.round(ctx.minRaiseTo + (ctx.maxRaiseTo - ctx.minRaiseTo) * 0.35), reason: `翻前牌力强（Chen ${chen.toFixed(1)}），加注施压` };
-      if (chen >= 6) {
-        if (legal.includes('raise') && (ctx.position.includes('庄') || ctx.position.includes('关位')) && this.rand() < 0.6) {
+      if (chen >= 8.5) return { action: legal.includes('raise') ? 'raise' : 'all_in', raiseTo: Math.round(ctx.minRaiseTo + (ctx.maxRaiseTo - ctx.minRaiseTo) * 0.35), reason: `翻前牌力强（Chen ${chen.toFixed(1)}），加注施压` };
+      if (chen >= 5.5) {
+        if (legal.includes('raise') && (ctx.position.includes('庄') || ctx.position.includes('关位')) && this.rand() < 0.75) {
           return { action: 'raise', raiseTo: Math.round(ctx.minRaiseTo), reason: `位置好且牌力不错（Chen ${chen.toFixed(1)}），偷盲加注` };
         }
         if (legal.includes('call')) return { action: 'call', reason: `中等牌力（Chen ${chen.toFixed(1)}），平跟进池` };
         return { action: 'check', reason: '中等牌力，过牌' };
       }
-      if (chen >= 4) {
+      if (chen >= 3.5) {
         const cheap = toCall <= ctx.bb;
         if (cheap) return { action: 'call', reason: `便宜看牌（跟 ${toCall}），牌力一般` };
         if (inBB && toCall === 0) return { action: 'check', reason: '大盲位免费看牌' };
         return { action: 'fold', reason: `牌力一般（Chen ${chen.toFixed(1)}），弃牌` };
       }
       if (inBB && toCall === 0) return { action: 'check', reason: '大盲位免费看牌' };
-      if (inBB && toCall <= ctx.bb && this.rand() < 0.5) return { action: 'call', reason: '大盲位便宜补足，看一手' };
+      if (inBB && toCall <= ctx.bb && this.rand() < 0.65) return { action: 'call', reason: '大盲位便宜补足，看一手' };
       return { action: 'fold', reason: `牌力弱（Chen ${chen.toFixed(1)}），直接弃牌` };
     }
 
@@ -101,6 +101,13 @@ export class HeuristicAgent implements PlayerAgent {
     const pot = Math.max(1, ctx.pot);
     const potOdds = toCall / (pot + toCall);
     const callEV = strength - potOdds;
+    const opponents = ctx.players.filter((p) => !p.folded && p.id !== ctx.playerId).length;
+
+    // 没成牌也偶尔诈唬：单挑且位置不错时
+    if (strength < 0.32 && opponents <= 1 && legal.includes('raise') && this.rand() < 0.15) {
+      const target = Math.round(Math.min(ctx.maxRaiseTo, ctx.currentBet + Math.round(pot * 0.55)));
+      return { action: 'raise', raiseTo: target, reason: `没成牌，但对手示弱，诈唬施压` };
+    }
 
     if (strength >= 0.72) {
       if (legal.includes('raise')) {
@@ -111,7 +118,7 @@ export class HeuristicAgent implements PlayerAgent {
     }
     if (strength >= 0.5) {
       if (legal.includes('check')) return { action: 'check', reason: `中等偏强（${result.name}），控池过牌` };
-      if (callEV > -0.15) return { action: 'call', reason: `有摊牌价值（${result.name}），跟注` };
+      if (callEV > -0.22) return { action: 'call', reason: `有摊牌价值（${result.name}），跟注` };
       return { action: 'fold', reason: `赔率不划算，弃牌` };
     }
     if (strength >= 0.32) {

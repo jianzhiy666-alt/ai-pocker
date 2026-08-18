@@ -8,7 +8,7 @@
  */
 
 import { PokerHand } from './poker/game.js';
-import type { PlayerSeed } from './poker/game.js';
+import type { PlayerSeed, Street } from './poker/game.js';
 import type { GameEvent, TablePlayerView } from './events.js';
 import type { PlayerAgent } from './agents/types.js';
 
@@ -39,6 +39,8 @@ export class Arena {
   private stacks = new Map<string, number>();
   private aliveIds: string[] = [];
   private bustedOrder: string[] = [];
+  /** 本手已广播的公共牌街（flop/turn/river），每手重置 */
+  private shownStreets = new Set<string>();
   private rng: () => number;
 
   constructor(opts: ArenaOptions) {
@@ -75,6 +77,27 @@ export class Arena {
     const a = this.opts.agents.find((x) => x.id === id);
     if (!a) throw new Error(`未知玩家: ${id}`);
     return a;
+  }
+
+  /** 按街广播公共牌：flop 3 张 → turn 4 张 → river 5 张（每街只发一次） */
+  private markStreets(hand: PokerHand): void {
+    const defs: [number, Street][] = [
+      [3, 'flop'],
+      [4, 'turn'],
+      [5, 'river'],
+    ];
+    const emitted: Street[] = [];
+    for (const [len, street] of defs) {
+      if (hand.communityCards.length >= len && !this.shownStreets.has(street)) {
+        this.shownStreets.add(street);
+        emitted.push(street);
+        this.emit({ type: 'street', street, cards: hand.communityCards.slice(0, len).map((c) => `${c.rank}${c.suit}`) });
+      }
+    }
+    // 一次广播了多条街 = 全员全下/无人再行动，公共牌按规则一口气发完
+    if (emitted.length > 1) {
+      this.emit({ type: 'note', text: `⚡ 全下！无人再行动，公共牌直接发完：${emitted.join(' → ')}` });
+    }
   }
 
   async run(): Promise<void> {
@@ -147,6 +170,7 @@ export class Arena {
       rng: this.rng,
     });
     hand.deal();
+    this.shownStreets.clear();
 
     const view = (): TablePlayerView[] =>
       hand.players.map((p) => ({
@@ -182,6 +206,8 @@ export class Arena {
       const actorBefore = hand.players.find((p) => p.id === req.playerId)!;
       const committedBefore = actorBefore.committed;
       hand.applyDecision(decision);
+      // 加注轮结束 → 翻开下一街公共牌时，逐街广播（flop 3 张 → turn 4 张 → river 5 张）
+      this.markStreets(hand);
       const actor = hand.players.find((p) => p.id === req.playerId)!;
       this.emit({
         type: 'action',
@@ -199,9 +225,8 @@ export class Arena {
     const result = hand.resultInfo;
     let resultText = '';
     if (result) {
-      if (result.communityCards.length) {
-        this.emit({ type: 'street', street: result.street, cards: result.communityCards.map((c) => `${c.rank}${c.suit}`) });
-      }
+      // 结算前补发尚未广播的公共牌街（如全下后连续翻牌）
+      this.markStreets(hand);
       this.emit({
         type: 'showdown',
         street: result.street,
