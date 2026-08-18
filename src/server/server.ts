@@ -3,7 +3,7 @@
 import express from 'express';
 import path from 'node:path';
 import type { Response } from 'express';
-import { ROOT } from '../config.js';
+import { ROOT, config } from '../config.js';
 import { GameRunner } from '../runner.js';
 import type { GameEvent } from '../events.js';
 import { readPlayers, updatePlayer } from './players-store.js';
@@ -81,7 +81,7 @@ export function createServer(runner: GameRunner) {
 
   // 状态查询
   app.get('/api/status', (_req, res) => {
-    res.json({ status: runner.getStatus(), players: runner.agentCount });
+    res.json({ status: runner.getStatus(), players: runner.agentCount, eliminateBottomEvery: config.eliminateBottomEvery });
   });
 
   // 控制

@@ -14,7 +14,14 @@ const state = {
   community: [],
   streetName: '',
   started: false,
+  elimEvery: 5, // 每 N 局末尾淘汰（从后端读取）
 };
+
+// 读取淘汰循环配置
+fetch('/api/status')
+  .then((r) => r.json())
+  .then((s) => { if (s.eliminateBottomEvery) state.elimEvery = s.eliminateBottomEvery; })
+  .catch(() => {});
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -323,7 +330,9 @@ function handleEvent(evt) {
       state.community = [];
       state.pot = 0;
       state.streetName = '翻前';
-      $('#hand-count').textContent = `· 第 ${evt.handNumber} 局`;
+      // 战况：总局数 + 当前末尾淘汰循环进度（如 第 12 局 · 循环 2/5）
+      const cycle = ((evt.handNumber - 1) % state.elimEvery) + 1;
+      $('#hand-count').textContent = `· 第 ${evt.handNumber} 局 · 循环 ${cycle}/${state.elimEvery}`;
       for (const v of evt.players) {
         const p = state.players.get(v.id);
         if (!p) continue;
