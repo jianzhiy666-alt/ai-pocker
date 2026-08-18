@@ -275,7 +275,7 @@ export class Arena {
         type: 'action',
         playerId: req.playerId,
         action: actor.lastAction ?? 'call',
-        amount: actor.committed - committedBefore,
+        amount: Math.round(actor.committed - committedBefore),
         reason: decision.reason,
         stack: actor.stack,
         committed: actor.committed,

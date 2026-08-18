@@ -116,7 +116,7 @@ export function sanitizeDecision(req: DecisionRequest, d: Decision): Decision {
   }
   if (action === 'raise') {
     let raw: number;
-    if (typeof d.amountBB === 'number' && Number.isFinite(d.amountBB)) raw = d.amountBB * req.bb;
+    if (typeof d.amountBB === 'number' && Number.isFinite(d.amountBB)) raw = Math.round(d.amountBB * req.bb);
     else raw = d.raiseTo ?? req.minRaiseTo;
     const target = Math.max(req.minRaiseTo, Math.min(raw, req.maxRaiseTo));
     if (target >= req.maxRaiseTo && raw >= req.maxRaiseTo) {
