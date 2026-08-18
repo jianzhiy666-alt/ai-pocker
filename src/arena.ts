@@ -11,6 +11,27 @@ import { PokerHand } from './poker/game.js';
 import type { PlayerSeed, Street } from './poker/game.js';
 import type { GameEvent, TablePlayerView } from './events.js';
 import type { PlayerAgent } from './agents/types.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ROOT } from './config.js';
+
+const IDENTITY_CACHE = path.join(ROOT, 'data', 'identities.json');
+
+function loadIdentityCache(): Record<string, string> {
+  try {
+    return JSON.parse(fs.readFileSync(IDENTITY_CACHE, 'utf-8')) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+function saveIdentityCache(cache: Record<string, string>): void {
+  try {
+    fs.mkdirSync(path.dirname(IDENTITY_CACHE), { recursive: true });
+    fs.writeFileSync(IDENTITY_CACHE, JSON.stringify(cache, null, 2));
+  } catch (err) {
+    console.warn('[身份缓存写入失败]', err instanceof Error ? err.message : err);
+  }
+}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -112,13 +133,28 @@ export class Arena {
 
     this.emit({ type: 'mode', mode: 'arena' });
 
-    // ===== 取名 Phase：每个 AI 自己取一个 Poker Name（全局唯一，赛季锁定） =====
+    // ===== 取名 Phase：每个 AI 自己取一个 Poker Name（全局唯一，赛季锁定，重启后保留） =====
+    const cache = loadIdentityCache();
     const taken = new Set<string>();
     for (const agent of this.opts.agents) {
-      let name = await agent.createIdentity();
+      let name = cache[agent.id];
+      let isNew = false;
+      if (!name) {
+        name = await agent.createIdentity();
+        isNew = true;
+      } else {
+        agent.currentName = name;
+      }
       let guard = 0;
-      while (taken.has(name) && guard++ < 8) name = await agent.createIdentity();
+      while (taken.has(name) && guard++ < 8) {
+        name = await agent.createIdentity();
+        isNew = true;
+      }
       taken.add(name);
+      if (isNew) {
+        cache[agent.id] = name;
+        saveIdentityCache(cache);
+      }
       this.emit({ type: 'identity_created', playerId: agent.id, name });
     }
     this.emit({

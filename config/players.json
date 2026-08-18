@@ -1,9 +1,9 @@
 [
   {
-    "id": "longcat",
-    "name": "LongCat 选手",
+    "id": "glm",
+    "name": "GLM 选手",
     "provider": "openrouter",
-    "model": "meituan/longcat-2.0"
+    "model": "z-ai/glm-4.7-flash"
   },
   {
     "id": "gemini",

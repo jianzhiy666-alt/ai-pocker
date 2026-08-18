@@ -26,9 +26,9 @@ export function createServer(runner: GameRunner) {
       'X-Accel-Buffering': 'no',
     });
     res.write(`retry: ${SSE_RETRY_MS}\n\n`);
-    // 新客户端先收到完整历史，恢复现场
+    // 新客户端先收到完整历史，恢复现场（用命名事件 replay，浏览器侧静默处理不打日志）
     for (const evt of runner.getHistory()) {
-      res.write(`data: ${JSON.stringify(evt)}\n\n`);
+      res.write(`event: replay\ndata: ${JSON.stringify(evt)}\n\n`);
     }
     const onEvent = (evt: GameEvent) => {
       res.write(`data: ${JSON.stringify(evt)}\n\n`);

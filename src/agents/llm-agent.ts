@@ -45,20 +45,27 @@ export class LLMAgent implements PlayerAgent {
     return name;
   }
 
-  /** 健康检查：模型是否可用（启动时探测；给推理型模型留足时间） */
+  /** 健康检查：模型是否可用（启动时探测；给推理型模型留足时间，限流时重试） */
   async ping(): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 45_000);
+    for (let i = 0; i < 3; i++) {
       try {
-        await this.provider.chat([{ role: 'user', content: 'ping' }], { maxTokens: 5, signal: controller.signal });
-        return true;
-      } finally {
-        clearTimeout(timer);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45_000);
+        try {
+          await this.provider.chat([{ role: 'user', content: 'ping' }], { maxTokens: 5, signal: controller.signal });
+          return true;
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch {
+        if (i < 2) await this.sleep(2000); // 瞬时限流/抖动退避
       }
-    } catch {
-      return false;
     }
+    return false;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   async decide(ctx: DecisionRequest): Promise<Decision> {
@@ -86,6 +93,7 @@ export class LLMAgent implements PlayerAgent {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (attempt < this.maxRetries) {
+          await this.sleep(1200 * (attempt + 1)); // 瞬时限流(429)退避
           messages.push({ role: 'user', content: `上一步出错（${msg}），请重新输出 JSON 决策。` });
         } else {
           console.warn(`[${this.name}] 模型调用失败(${msg})，本轮由启发式机器人接管`);

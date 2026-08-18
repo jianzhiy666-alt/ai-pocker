@@ -12,6 +12,7 @@ const state = {
   bb: 20,
   pot: 0,
   community: [],
+  streetName: '',
   started: false,
 };
 
@@ -137,7 +138,9 @@ function renderCommunity() {
     else box.appendChild(document.createElement('div')).className = 'card back';
   }
   $('#pot').textContent = `底池 ${state.pot}`;
-  $('#hand-num').textContent = state.handNumber ? `第 ${state.handNumber} 手` : '';
+  $('#hand-num').textContent = state.handNumber
+    ? `第 ${state.handNumber} 手 · ${state.streetName || '翻前'} · ${state.players.size} 人`
+    : '';
 }
 
 function renderLevel() {
@@ -145,6 +148,7 @@ function renderLevel() {
 }
 
 function addLog(html, cls = 'action') {
+  if (silentMode) return; // 历史重放时静默
   const body = $('#log-body');
   const div = document.createElement('div');
   div.className = `log-line ${cls}`;
@@ -216,6 +220,7 @@ function handleEvent(evt) {
       state.level = evt.level; state.sb = evt.sb; state.bb = evt.bb;
       state.community = [];
       state.pot = 0;
+      state.streetName = '翻前';
       for (const v of evt.players) {
         const p = state.players.get(v.id);
         if (!p) continue;
@@ -235,8 +240,9 @@ function handleEvent(evt) {
       break;
     case 'street':
       state.community = evt.cards;
+      state.streetName = evt.street === 'flop' ? '翻牌' : evt.street === 'turn' ? '转牌' : '河牌';
       renderCommunity();
-      if (evt.cards.length) addLog(`🂠 ${evt.street === 'flop' ? '翻牌' : evt.street === 'turn' ? '转牌' : '河牌'}: ${evt.cards.join(' ')}`, 'system');
+      if (evt.cards.length) addLog(`🂠 ${state.streetName}: ${evt.cards.join(' ')}`, 'system');
       break;
     case 'actor': {
       for (const p of state.players.values()) p.isActive = false;
@@ -277,6 +283,7 @@ function handleEvent(evt) {
     }
     case 'showdown': {
       state.community = evt.community;
+      state.streetName = '摊牌';
       renderCommunity();
       for (const r of evt.results) {
         const p = state.players.get(r.playerId);
@@ -377,11 +384,23 @@ $('#btn-restart').addEventListener('click', () => {
 $('#speed').addEventListener('change', (e) => control('speed', Number(e.target.value)));
 
 /* ---------- SSE ---------- */
+// 重放模式：历史事件静默恢复状态，不打日志（避免"瞬间全部冒出"的错觉）
+let silentMode = false;
+
 function connect() {
   const es = new EventSource('/api/events');
   const conn = $('#conn');
   es.onopen = () => { conn.textContent = '● 已连接'; conn.className = 'conn on'; };
   es.onerror = () => { conn.textContent = '○ 重连中…'; conn.className = 'conn off'; };
+  es.addEventListener('replay', (e) => {
+    silentMode = true;
+    try {
+      handleEvent(JSON.parse(e.data));
+    } catch (err) {
+      console.error('重放事件处理失败', err);
+    }
+    silentMode = false;
+  });
   es.onmessage = (e) => {
     try {
       handleEvent(JSON.parse(e.data));
