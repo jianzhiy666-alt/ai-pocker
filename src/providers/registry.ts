@@ -67,7 +67,8 @@ export function createProvider(name: string, model?: string): ChatProvider | nul
     baseURL: def.baseURL,
     apiKey,
     model: model ?? def.defaultModel,
-    proxy: config.proxy,
+    // DeepSeek 官方是中国大陆服务：直连更快更稳（走美国代理会绕路且可能被风控返回空响应）
+    proxy: name === 'deepseek' ? undefined : config.proxy,
     extraHeaders: def.extraHeaders,
   });
 }
