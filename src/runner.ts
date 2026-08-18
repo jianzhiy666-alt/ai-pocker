@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import type { GameEvent } from './events.js';
 import { Arena } from './arena.js';
 import type { PlayerAgent } from './agents/types.js';
+import { buildAgents, loadPlayerConfigs } from './agents/factory.js';
 import { config } from './config.js';
 
 export interface RunnerOptions {
@@ -15,6 +16,7 @@ export type RunnerStatus = 'idle' | 'running' | 'paused';
 
 export class GameRunner extends EventEmitter {
   private opts: RunnerOptions;
+  private agents: PlayerAgent[];
   private arena: Arena | null = null;
   private status: RunnerStatus = 'idle';
   private history: GameEvent[] = [];
@@ -24,6 +26,7 @@ export class GameRunner extends EventEmitter {
   constructor(opts: RunnerOptions) {
     super();
     this.opts = opts;
+    this.agents = opts.agents;
   }
 
   getStatus(): RunnerStatus {
@@ -43,7 +46,13 @@ export class GameRunner extends EventEmitter {
   }
 
   get agentCount(): number {
-    return this.opts.agents.length;
+    return this.agents.length;
+  }
+
+  /** 从 players.json/.env 重新加载选手配置并重启比赛（网页端改配置后调用） */
+  reloadAgents(): void {
+    this.agents = buildAgents(loadPlayerConfigs());
+    this.restart();
   }
 
   private setStatus(s: RunnerStatus): void {
@@ -60,7 +69,7 @@ export class GameRunner extends EventEmitter {
   start(): void {
     if (this.status === 'running') return;
     this.arena = new Arena({
-      agents: this.opts.agents,
+      agents: this.agents,
       bb: config.bb,
       startingStackBB: config.startingStackBB,
       handDelayMs: config.handDelayMs / this.speed,

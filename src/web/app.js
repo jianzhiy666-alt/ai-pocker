@@ -82,11 +82,97 @@ function renderSeats() {
         <div class="bet-chip" style="display:none"></div>
         <div class="action-flag"></div>
       </div>`;
+    // 点击座位 → 打开配置弹窗
+    seat.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPlayerModal(p.id);
+    });
     seats.appendChild(seat);
   }
   layoutSeats();
   window.addEventListener('resize', layoutSeats);
 }
+
+/* ---------- 玩家配置弹窗 ---------- */
+let pmPlayerId = null;
+let pmProviders = [];
+
+async function openPlayerModal(playerId) {
+  pmPlayerId = playerId;
+  try {
+    const resp = await fetch('/api/players');
+    const data = await resp.json();
+    pmProviders = data.providers;
+    const player = data.players.find((p) => p.id === playerId);
+    if (!player) return;
+    $('#pm-name').textContent = `${player.name}（${playerId}）`;
+    const sel = $('#pm-provider');
+    sel.innerHTML = '';
+    const options = [['heuristic', '启发式机器人（本地）'], ...data.providers.map((p) => [p.name, p.label])];
+    for (const [val, label] of options) {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = label;
+      if (val === player.provider) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    $('#pm-model').value = player.model;
+    $('#pm-key').value = '';
+    updateKeyStatus();
+    $('#pm-msg').textContent = '';
+    $('#player-modal').classList.remove('hidden');
+  } catch (err) {
+    console.error('加载配置失败', err);
+  }
+}
+
+function updateKeyStatus() {
+  const p = pmProviders.find((x) => x.name === $('#pm-provider').value);
+  const el = $('#pm-key-status');
+  if (!p) { el.textContent = ''; el.className = 'pm-status'; return; }
+  el.textContent = p.keySet ? '✓ 已配置' : '✗ 未配置';
+  el.className = p.keySet ? 'pm-status ok' : 'pm-status no';
+}
+
+$('#pm-provider').addEventListener('change', updateKeyStatus);
+$('#pm-close').addEventListener('click', () => $('#player-modal').classList.add('hidden'));
+$('#player-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#player-modal').classList.add('hidden'); });
+
+$('#pm-save').addEventListener('click', async () => {
+  const msg = $('#pm-msg');
+  msg.textContent = '保存中…';
+  try {
+    const provider = $('#pm-provider').value;
+    const model = $('#pm-model').value.trim();
+    const apiKey = $('#pm-key').value.trim();
+    // 1. 更新玩家 provider/model
+    const r1 = await fetch(`/api/players/${pmPlayerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, model: model || undefined }),
+    });
+    const j1 = await r1.json();
+    if (!r1.ok) throw new Error(j1.error || '保存玩家配置失败');
+    // 2. 如果填了 API key，保存到对应 provider
+    let keyNote = '';
+    if (apiKey && provider !== 'heuristic') {
+      const r2 = await fetch('/api/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: provider, apiKey }),
+      });
+      const j2 = await r2.json();
+      if (!r2.ok) throw new Error(j2.error || '保存 API key 失败');
+      keyNote = ' + key';
+    }
+    msg.textContent = `✅ ${j1.note}${keyNote}，页面将自动刷新现场…`;
+    msg.style.color = '#7CFC00';
+    setTimeout(() => $('#player-modal').classList.add('hidden'), 1200);
+  } catch (err) {
+    msg.textContent = `❌ ${err.message}`;
+    msg.style.color = '#ff8787';
+  }
+});
 
 function updateSeat(p) {
   const seat = document.getElementById(`seat-${p.id}`);

@@ -293,6 +293,57 @@ main {
 .log-line.talk { background: rgba(91,214,138,0.06); border-left-color: #74c0fc; }
 .log-line.talk .who { color: #74c0fc; }
 .mode { font-size: 12px; color: var(--gold); font-weight: 700; }
+
+/* 玩家配置弹窗 */
+.seat { cursor: pointer; }
+.seat:hover .seat-inner { border-color: var(--gold); box-shadow: 0 0 12px rgba(212, 175, 55, 0.5); }
+.pmodal {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.pmodal.hidden { display: none; }
+.pmodal-box {
+  width: min(440px, 92vw);
+  background: linear-gradient(180deg, #143726, #0b2418);
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.pmodal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+}
+.pmodal-head h2 { font-size: 16px; color: var(--gold); }
+.pmodal-head button { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+.pmodal-body { padding: 16px 18px 18px; }
+.pm-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pm-row label { width: 86px; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+.pm-row input, .pm-row select {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
+  min-width: 0;
+}
+.pm-row .pm-val { font-weight: 700; }
+.pm-status { font-size: 12px; white-space: nowrap; }
+.pm-status.ok { color: #7CFC00; }
+.pm-status.no { color: #ff8787; }
+.pm-tip { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 10px 0 14px; }
+.pm-tip code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; }
+.pm-actions { display: flex; align-items: center; gap: 12px; }
+.pm-actions button {
+  background: var(--gold); color: #231a00; border: none;
+  font-weight: 700; font-size: 13px;
+  padding: 9px 18px; border-radius: 8px; cursor: pointer;
+}
+.pm-actions button:hover { filter: brightness(1.1); }
+#pm-msg { font-size: 12px; }
 .log-line.champ { background: linear-gradient(90deg, rgba(212,175,55,0.25), transparent); border-left-color: var(--gold); font-weight: 700; }
 .log-line .sub { color: var(--muted); font-size: 11.5px; }
 @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }

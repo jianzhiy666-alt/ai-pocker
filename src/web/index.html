@@ -61,6 +61,37 @@
     </aside>
   </main>
 
+  <!-- 玩家配置弹窗（点击座位打开） -->
+  <div id="player-modal" class="pmodal hidden">
+    <div class="pmodal-box">
+      <div class="pmodal-head">
+        <h2>⚙️ 玩家配置</h2>
+        <button id="pm-close">✕</button>
+      </div>
+      <div class="pmodal-body">
+        <div class="pm-row"><label>玩家</label><span id="pm-name" class="pm-val"></span></div>
+        <div class="pm-row">
+          <label>Provider</label>
+          <select id="pm-provider"></select>
+        </div>
+        <div class="pm-row">
+          <label>模型</label>
+          <input id="pm-model" placeholder="留空用该 provider 默认模型" spellcheck="false" />
+        </div>
+        <div class="pm-row">
+          <label>API Key</label>
+          <input id="pm-key" type="password" placeholder="粘贴该 provider 的 API key" spellcheck="false" autocomplete="off" />
+          <span id="pm-key-status" class="pm-status"></span>
+        </div>
+        <div class="pm-tip">💡 保存后比赛会自动重启，新配置立即生效。模型填 OpenRouter 的 ID（如 <code>qwen/qwen3-30b-a3b-instruct-2507</code>）或官方模型名。</div>
+        <div class="pm-actions">
+          <button id="pm-save" class="primary">💾 保存并重启</button>
+          <span id="pm-msg"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

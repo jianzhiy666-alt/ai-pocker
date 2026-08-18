@@ -6,6 +6,9 @@ import type { Response } from 'express';
 import { ROOT } from '../config.js';
 import { GameRunner } from '../runner.js';
 import type { GameEvent } from '../events.js';
+import { readPlayers, updatePlayer } from './players-store.js';
+import { setEnvKey } from './env-store.js';
+import { PROVIDER_DEFS } from '../providers/registry.js';
 
 const SSE_RETRY_MS = 3000;
 
@@ -37,6 +40,43 @@ export function createServer(runner: GameRunner) {
     res.on('close', () => {
       runner.off('event', onEvent);
     });
+  });
+
+  // 玩家/模型配置管理（网页端点击 AI 头像配置）
+  app.get('/api/players', (_req, res) => {
+    const players = readPlayers().map((p) => ({ id: p.id, name: p.name, provider: p.provider ?? 'heuristic', model: p.model ?? '' }));
+    const providers = Object.entries(PROVIDER_DEFS).map(([name, def]) => ({
+      name,
+      label: def.label,
+      keySet: Boolean(process.env[def.envKey]),
+      defaultModel: def.defaultModel,
+    }));
+    res.json({ players, providers });
+  });
+
+  app.post('/api/players/:id', (req, res) => {
+    try {
+      const { provider, model } = (req.body ?? {}) as { provider?: string; model?: string };
+      updatePlayer(req.params.id, { provider, model });
+      runner.reloadAgents();
+      res.json({ ok: true, note: '配置已保存，比赛自动重启' });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post('/api/providers', (req, res) => {
+    try {
+      const { name, apiKey } = (req.body ?? {}) as { name?: string; apiKey?: string };
+      const def = PROVIDER_DEFS[name as keyof typeof PROVIDER_DEFS];
+      if (!def) return res.status(400).json({ error: `未知 provider: ${name}` });
+      if (!apiKey || !apiKey.trim()) return res.status(400).json({ error: 'API key 不能为空' });
+      setEnvKey(def.envKey, apiKey.trim());
+      runner.reloadAgents();
+      res.json({ ok: true, note: `${def.label} 的 API key 已保存，比赛自动重启` });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   // 状态查询
