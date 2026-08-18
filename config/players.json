@@ -24,10 +24,10 @@
     "model": "deepseek/deepseek-chat-v3-0324"
   },
   {
-    "id": "ling",
-    "name": "Ling 选手",
+    "id": "gpt",
+    "name": "GPT-5.6 选手",
     "provider": "openrouter",
-    "model": "inclusionai/ling-2.6-flash"
+    "model": "openai/gpt-5.6-luna"
   },
   {
     "id": "deepseek",

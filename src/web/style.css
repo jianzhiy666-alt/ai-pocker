@@ -181,6 +181,14 @@ main {
 }
 .avatar .badge.bb { background: #ff922b; color: #fff; }
 .avatar .badge.sb { background: #74c0fc; color: #0b2c44; }
+.seat .folded-flag {
+  position: absolute; top: 34px; right: -4px;
+  background: rgba(200, 60, 60, 0.92);
+  color: #fff; font-size: 10px; font-weight: 800;
+  border-radius: 8px; padding: 1px 7px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  z-index: 5;
+}
 .seat .name { font-size: 13px; font-weight: 700; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .model { font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .stack { font-size: 13px; font-weight: 700; color: var(--gold); margin-top: 2px; }
