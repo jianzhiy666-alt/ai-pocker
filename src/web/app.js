@@ -491,7 +491,7 @@ function handleEvent(evt) {
       updateSeat(p);
       if (evt.playerId === humanId) hideHumanPanel();
       renderCommunity();
-      const actionText = evt.action === 'raise' ? `加注到 ${evt.amount}` : evt.action === 'all_in' ? `全下 ${evt.amount}` : evt.action === 'call' ? `跟注 ${evt.amount}` : evt.action === 'check' ? '过牌' : '弃牌';
+      const actionText = evt.action === 'raise' ? `加注到 ${evt.committed}` : evt.action === 'all_in' ? `全下 ${evt.committed}` : evt.action === 'call' ? `跟注 ${evt.amount}` : evt.action === 'check' ? '过牌' : '弃牌';
       addLog(`<span class="who" style="color:${p.color}">${p.name}</span> ${actionText}`, 'action');
       break;
     }
