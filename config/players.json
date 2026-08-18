@@ -1,9 +1,9 @@
 [
   {
-    "id": "glm",
-    "name": "GLM 选手",
+    "id": "mistral",
+    "name": "Mistral 选手",
     "provider": "openrouter",
-    "model": "z-ai/glm-4.7-flash"
+    "model": "mistralai/mistral-small-3.2-24b-instruct"
   },
   {
     "id": "gemini",
@@ -18,10 +18,10 @@
     "model": "qwen/qwen3-30b-a3b-instruct-2507"
   },
   {
-    "id": "minimax",
-    "name": "MiniMax 选手",
+    "id": "dsv3",
+    "name": "DeepSeek V3 选手",
     "provider": "openrouter",
-    "model": "minimax/minimax-m2.7"
+    "model": "deepseek/deepseek-chat-v3-0324"
   },
   {
     "id": "ling",
