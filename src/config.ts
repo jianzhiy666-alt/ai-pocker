@@ -10,8 +10,9 @@ export const PLAYERS_PATH = path.join(ROOT, 'config', 'players.json');
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  startingStack: Number(process.env.STARTING_CHIPS ?? 2000),
-  handsPerLevel: Number(process.env.HANDS_PER_LEVEL ?? 6),
+  /** 大盲筹码值（v0.1：SB = 0.5 BB，初始 100 BB，固定不涨） */
+  bb: Number(process.env.BB ?? 20),
+  startingStackBB: Number(process.env.STARTING_STACK_BB ?? 100),
   handDelayMs: Number(process.env.HAND_DELAY_MS ?? 900),
   actionDelayMs: Number(process.env.ACTION_DELAY_MS ?? 700),
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 45_000),

@@ -1,115 +1,107 @@
-# 🤠 AI 扑克擂台 (AI Poker Arena)
+# 🤠 AI 扑克擂台 v0.1 (AI Poker Arena)
 
-德州扑克锦标赛，**每个座位都是一个 AI 玩家**——可以接入 Qwen / DeepSeek / Gemini / Grok 等各大模型（走 OpenRouter 或官方 OpenAI 兼容端点），也可以让本地启发式机器人对战。所有 AI 的决策理由会实时展示在网页观战台上，节目效果拉满。
+6 个 AI 各拿 100 BB → **自己取 Poker Name** → 自主打德州扑克 → 每手一句嘴炮 → 输光淘汰 → **最后一个 AI 获胜**。
 
-## 特性
+一句话目标：6 个 AI、100BB、各自取名、自主打 NLHE、可以嘴炮、输光淘汰、最后一人获胜。
 
-- 🃏 **完整德州扑克规则引擎**：翻前/翻牌/转牌/河牌四轮下注、加注/全下/边池、单挑规则
-- 🏆 **升盲锦标赛**：盲注逐级上涨，筹码清零即淘汰，最后一人夺冠
-- 🤖 **多 AI 对战**：每位选手配置独立 provider + 模型 + 人设（persona），决策理由实时直播
-- 🔌 **统一 OpenAI 兼容接入**：OpenRouter（一个 key 通吃几乎所有模型）、通义千问 DashScope、DeepSeek、Gemini、xAI Grok 开箱即用
-- 🎬 **网页实时观战**：牌桌、明牌、筹码、公共牌、思考过程一目了然，支持暂停/倍速/新一局
-- 🪪 **AI 可以给自己改名**：赢了大赛会膨胀改名、被淘汰会留下遗言名号、夺冠会加冕新称号——真模型自己起名，机器人从词库随机组合，整场比赛就是一出自带剧情的大戏
-- 🛟 **无 key 也能跑**：默认 6 个启发式机器人直接开局；配置了哪个模型的 key，对应座位自动换成真 AI
+## 比赛规则 v0.1
 
-## 技术栈与开源复用
-
-Node.js + TypeScript，单服务（Express 后端 + SSE 实时推送 + 原生 JS 前端）。
-
-| 模块 | 方案 |
+| 项目 | 设置 |
 |---|---|
-| 牌力评估 | 复用开源库 [pokersolver](https://github.com/goldfire/pokersolver)（生产久经考验，7 张选最佳 5 张、平局判定） |
-| 下注轮/边池/锦标赛引擎 | 自研（约 600 行，含 13 个单元测试）——评估过 [poker-ts](https://www.npmjs.com/package/poker-ts)、[texasholdem](https://www.npmjs.com/package/texasholdem)、[@pokertools/engine](https://www.npmjs.com/package/@pokertools/engine)、[@leoni4/poker-table](https://www.npmjs.com/package/@leoni4/poker-table) 等开源引擎，要么太新 API 未验证、要么缺少边池/全下支持，且与 AI 决策循环耦合深，故自研并配套测试 |
-| 牌桌 UI | 自研轻量页面（无框架、无构建），扑克牌用 Unicode + CSS 渲染 |
-| LLM 接入 | OpenAI Chat Completions 兼容适配器（OpenRouter / DashScope / DeepSeek / Gemini / xAI 全兼容） |
+| 游戏 | No-Limit Texas Hold'em，6-max |
+| 玩家 | 6 个 AI（真模型或启发式机器人混搭） |
+| 初始筹码 | 100 BB |
+| SB / BB | 0.5 / 1 BB（固定，永不上涨） |
+| 筹码 | 不重置，禁止 rebuy |
+| 淘汰 | 筹码归零出局 |
+| 获胜 | 最后一个留在牌桌上的 AI |
+| AI 名字 | 比赛开始前每个 AI 自己取（赛季内锁定） |
+| 嘴炮 | 每手结束后所有存活 AI 说一句或保持沉默（纯给观众看） |
+| 模型身份 | 对 AI 隐藏（它们只知道对手是"5 个自主 AI 玩家"） |
+
+> 固定盲注 + 不重置 + 淘汰制严格说是一个"固定盲注淘汰赛"，作为第一版 AI Arena 足够好玩，也比锦标赛简单得多。
+
+## 技术架构
+
+```
+src/
+├── arena.ts           # 核心编排：取名 → 循环打牌 → 淘汰 → 冠军 + 每手嘴炮
+├── poker/             # 规则引擎：cards / evaluator(pokersolver) / game（下注轮、边池）
+├── agents/
+│   ├── prompt.ts      # 极简决策提示词（action + amount_bb JSON）+ 局面渲染
+│   ├── identity.ts    # 取名 Phase（模型自己取 Poker Name）
+│   ├── talk.ts        # 每手一句嘴炮（独立调用，不进决策上下文）
+│   ├── llm-agent.ts   # 真模型智能体（决策温度 0.2，取名/嘴炮独立调用）
+│   └── heuristic-agent.ts  # 启发式机器人（离线演示 / LLM 失败兜底）
+├── providers/         # OpenAI 兼容适配器（OpenRouter/DashScope/DeepSeek/Gemini/xAI）
+├── server/ + web/     # Express + SSE + 原生 JS 观战页
+```
+
+关键设计：
+- **决策与嘴炮完全分离**（独立 API 调用）：模型不会为了说骚话而改变扑克决策
+- **嘴炮纯给观众看**：v0.1 不进任何 AI 的决策上下文，直接规避 prompt injection / context 膨胀
+- **决策输出严格 JSON**：`{"action": "fold|check|call|raise|all_in", "amount_bb": 0}`，amount_bb 是 BB 单位
+- **牌力评估复用开源库** [pokersolver](https://github.com/goldfire/pokersolver)；规则引擎自研（13+ 单元测试）
 
 ## 快速开始
 
 ```bash
 cd poker-arena
-npm install          # 或 pnpm install
-npm start            # 启动后自动开局
+npm install
+npm start        # 启动后自动开局
 ```
 
-浏览器打开 **http://localhost:3000** 即可观战。
+浏览器打开 **http://localhost:3000** 观战：牌桌、明牌、筹码、公共牌、每个 AI 的思考旁白、每手嘴炮、淘汰和冠军。
+
+无头模式（控制台快速跑完整比赛）：`npm run play`
 
 ## 接入真实 AI 模型
 
-1. 复制 `.env.example` 为 `.env`，填入 API key（配哪个就能启用哪个，没配的自动用启发式机器人）：
+1. `cp .env.example .env`，填入 API key（配了哪个启用哪个，没配的用启发式机器人）：
 
-```bash
-cp .env.example .env
-# 编辑 .env，至少填一个 key，例如：
-# OPENROUTER_API_KEY=sk-or-xxx      ← 推荐：一个 key 通吃几乎所有模型
+```
+OPENROUTER_API_KEY=sk-or-xxx   # 推荐：一个 key 通吃几乎所有模型
+# 或 DASHSCOPE_API_KEY / DEEPSEEK_API_KEY / GEMINI_API_KEY / XAI_API_KEY
 ```
 
-2. 编辑 `config/players.json`，把想换成真 AI 的选手的 `provider` 改为对应名字，并可选指定 `model` 与 `persona`（人设）：
+2. 编辑 `config/players.json`，把选手的 `provider` 改为对应名字（`openrouter` / `dashscope` / `deepseek` / `gemini` / `xai`），可选指定 `model`：
 
 ```json
 [
-  { "id": "qwen",  "name": "通义千问", "provider": "dashscope",  "model": "qwen-plus",     "persona": "稳重老练，重视位置和赔率。" },
-  { "id": "ds",    "name": "深度求索", "provider": "deepseek",   "model": "deepseek-chat", "persona": "计算流，喜欢算赔率。" },
-  { "id": "gem",   "name": "双子星",   "provider": "gemini",     "model": "gemini-2.0-flash", "persona": "风格激进，爱偷盲。" },
-  { "id": "grok",  "name": "格洛克",   "provider": "openrouter", "model": "x-ai/grok-3-mini", "persona": "话多但牌技好。" },
-  { "id": "bot1",  "name": "刀锋",     "provider": "heuristic" }
+  { "id": "qwen",  "name": "Qwen 选手", "provider": "dashscope",  "model": "qwen-plus" },
+  { "id": "ds",    "name": "DS 选手",   "provider": "deepseek",   "model": "deepseek-chat" },
+  { "id": "gem",   "name": "Gem 选手",  "provider": "gemini",     "model": "gemini-2.0-flash" },
+  { "id": "grok",  "name": "Grok 选手",  "provider": "openrouter", "model": "x-ai/grok-3-mini" },
+  { "id": "bot1",  "name": "机器人甲",   "provider": "heuristic" }
 ]
 ```
 
-3. 重启 `npm start`。
-
-### 可选 provider
-
-| provider 名 | 说明 | 环境变量 |
-|---|---|---|
-| `openrouter` | 万能聚合，几乎全部主流模型（qwen/deepseek/gemini/grok/claude/gpt…） | `OPENROUTER_API_KEY` |
-| `dashscope` | 阿里云通义千问官方 | `DASHSCOPE_API_KEY` |
-| `deepseek` | DeepSeek 官方 | `DEEPSEEK_API_KEY` |
-| `gemini` | Google Gemini（OpenAI 兼容端点） | `GEMINI_API_KEY` |
-| `xai` | xAI Grok 官方 | `XAI_API_KEY` |
-| `heuristic` | 本地启发式机器人（离线演示 / LLM 失败兜底） | — |
+3. 重启 `npm start`。开赛后每个模型自己取名（UI 实时显示）。
 
 ## 牌局参数（.env）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `PORT` | 3000 | 服务端口 |
-| `STARTING_CHIPS` | 2000 | 每位选手初始筹码 |
-| `HANDS_PER_LEVEL` | 6 | 每个盲注级别打几手后升级 |
-| `HAND_DELAY_MS` | 900 | 每手牌间隔（观战节奏） |
+| `BB` | 20 | 大盲筹码值（SB = 0.5 BB） |
+| `STARTING_STACK_BB` | 100 | 初始筹码（BB） |
+| `HAND_DELAY_MS` | 900 | 每手间隔（观战节奏） |
 | `ACTION_DELAY_MS` | 700 | 每次行动间隔 |
 | `LLM_TIMEOUT_MS` | 45000 | 单次模型调用超时 |
 
-## 命令
+## 测试与命令
 
 ```bash
-npm start        # 启动服务 + 网页观战（自动开局）
-npm run play     # 无头模式：控制台跑完整锦标赛（快速验证）
-npm test         # 单元测试（规则引擎 + 牌力评估）
+npm start          # 服务 + 网页观战（自动开局）
+npm run play       # 无头模式完整比赛
+npm test           # 单元测试（规则引擎 + 智能体 + Arena 端到端）
 npm run typecheck
 ```
 
-## 目录结构
+## Roadmap（后续版本）
 
-```
-poker-arena/
-├── config/players.json      # 选手配置（provider/model/persona）
-├── src/
-│   ├── index.ts             # 入口
-│   ├── config.ts            # 环境配置
-│   ├── events.ts            # 事件流格式（引擎→SSE→浏览器）
-│   ├── runner.ts            # 比赛控制器（生命周期/速度）
-│   ├── tournament.ts        # 锦标赛编排（升盲/淘汰）
-│   ├── poker/               # 规则引擎（cards/evaluator/game + 测试）
-│   ├── agents/              # AI 智能体（提示词/LLM 决策/启发式机器人）
-│   ├── providers/           # LLM 接入（OpenAI 兼容适配器 + 注册表）
-│   ├── server/              # Express + SSE
-│   └── web/                 # 观战页面（纯 HTML/CSS/JS）
-└── scripts/play.ts          # 无头演示
-```
-
-## 未来可加
-
-- 每手牌的复盘回放（事件流已全量留存）
-- 更多变体：限注、底池限注、比赛奖励结构
-- 选手"个性"数据库（不同模型 + 人设组合的胜率统计）
-- 旁观聊天/弹幕
+- v0.2：嘴炮进入 AI 决策上下文（心理战真正开始）
+- v0.3：对手统计 / 长期记忆 / 恩怨
+- v0.4：duplicate hands + bb/100 公平比较
+- v0.5：PokerSkill
+- v1.0：正式 AI Poker League

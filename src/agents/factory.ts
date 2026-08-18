@@ -38,6 +38,6 @@ export function buildAgents(entries: PlayerConfigEntry[]): PlayerAgent[] {
       console.warn(`[警告] ${e.name}: provider "${providerName}" 未配置 API key，回退为启发式机器人（在 .env 中设置对应 key 后重启生效）`);
       return new HeuristicAgent({ id, name: e.name, seed: i + 1 });
     }
-    return new LLMAgent({ id, name: e.name, provider, persona: e.persona, timeoutMs: config.llmTimeoutMs });
+    return new LLMAgent({ id, name: e.name, provider, timeoutMs: config.llmTimeoutMs });
   });
 }

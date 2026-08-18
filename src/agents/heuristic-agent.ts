@@ -4,7 +4,8 @@ import { PlayerAgent } from './types.js';
 import { Decision, DecisionRequest } from '../poker/game.js';
 import { evaluate7 } from '../poker/evaluator.js';
 import { RANK_VALUE } from '../poker/cards.js';
-import { RenameContext, RenameReason, randomNameFromPool, sanitizeName, ensureUnique } from './rename.js';
+import { nameFromPool, ensureUniqueName } from './identity.js';
+import { TalkContext, talkFromPool } from './talk.js';
 
 export interface HeuristicAgentOptions {
   id: string;
@@ -26,7 +27,6 @@ function chenFormula(cards: { rank: string }[]): number {
     if (gap === 1) score += high >= 12 ? 3 : 2;
     else if (gap === 2) score += 2;
     else if (gap === 3) score += 1;
-    if (score > 5 && gap > 1) score = Math.min(score, 5) + (gap > 1 ? 0 : 0);
   }
   return score;
 }
@@ -57,10 +57,15 @@ export class HeuristicAgent implements PlayerAgent {
     };
   }
 
-  async rename(reason: RenameReason, ctx: RenameContext): Promise<string> {
-    const name = randomNameFromPool(this.rand);
-    const clean = sanitizeName(name) ?? `${ctx.oldName}·改`;
-    return ensureUnique(clean, ctx.takenNames ?? [], this.rand);
+  async createIdentity(): Promise<string> {
+    this.currentName = nameFromPool(this.rand);
+    return this.currentName;
+  }
+
+  async talk(_ctx: TalkContext): Promise<string> {
+    // 30% 概率保持沉默
+    if (this.rand() < 0.3) return '';
+    return talkFromPool(this.rand);
   }
 
   async decide(ctx: DecisionRequest): Promise<Decision> {
@@ -118,3 +123,5 @@ export class HeuristicAgent implements PlayerAgent {
     return { action: 'fold', reason: `没成牌（${result.name}），弃牌` };
   }
 }
+
+export { ensureUniqueName };

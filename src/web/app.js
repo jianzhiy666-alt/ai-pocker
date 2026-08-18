@@ -174,6 +174,19 @@ function updateRankings() {
 /* ---------- 事件处理 ---------- */
 function handleEvent(evt) {
   switch (evt.type) {
+    case 'mode':
+      $('#mode').textContent = '🥊 AI Arena';
+      break;
+    case 'identity_created': {
+      const p = state.players.get(evt.playerId);
+      if (p) {
+        p.name = evt.name;
+        updateSeat(p);
+      }
+      updateRankings();
+      addLog(`🎭 <b>${escapeHtml(evt.name)}</b> 登场！<span class="sub">名字由 AI 自己取的</span>`, 'identity');
+      break;
+    }
     case 'game_start': {
       state.players.clear();
       for (const [i, pl] of evt.players.entries()) {
@@ -236,6 +249,12 @@ function handleEvent(evt) {
       const p = state.players.get(evt.playerId);
       if (!p) break;
       addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 💭 ${escapeHtml(evt.text)} <span class="sub">· ${evt.model}</span>`, 'thinking');
+      break;
+    }
+    case 'table_talk': {
+      const p = state.players.get(evt.playerId);
+      if (!p) break;
+      addLog(`<span class="who" style="color:${p.color}">${p.name}</span> 💬 ${escapeHtml(evt.message)}`, 'talk');
       break;
     }
     case 'action': {

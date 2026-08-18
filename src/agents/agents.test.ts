@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderState, parseDecision, sanitizeDecision } from './prompt.js';
 import { HeuristicAgent } from './heuristic-agent.js';
-import { sanitizeName, ensureUnique, randomNameFromPool } from './rename.js';
-import { DecisionRequest, ActionType } from '../poker/game.js';
+import { sanitizeName, ensureUniqueName, nameFromPool, parseName } from './identity.js';
+import { parseTalk, talkFromPool } from './talk.js';
+import { DecisionRequest } from '../poker/game.js';
 import { Card } from '../poker/cards.js';
 
 function makeReq(overrides: Partial<DecisionRequest> = {}): DecisionRequest {
@@ -33,19 +34,21 @@ function makeReq(overrides: Partial<DecisionRequest> = {}): DecisionRequest {
   };
 }
 
-test('renderState 包含关键信息', () => {
+test('renderState 极简格式包含关键信息', () => {
   const text = renderState(makeReq());
-  assert.ok(text.includes('A♠'));
-  assert.ok(text.includes('K♠'));
-  assert.ok(text.includes('20'));
-  assert.ok(text.includes('庄位'));
-  assert.ok(text.includes('加注'));
+  assert.ok(text.includes('A♠ K♠'));
+  assert.ok(text.includes('位置: 庄位(BTN)'));
+  assert.ok(text.includes('底池'));
+  assert.ok(text.includes('合法行动'));
+  assert.ok(text.includes('加注 2.0–10.0 BB'), 'BB 单位显示');
 });
 
-test('parseDecision 容忍 markdown 代码块与前后杂文', () => {
-  const d = parseDecision('```json\n{"action": "raise", "raiseTo": 120, "reason": "手牌很好"}\n```');
-  assert.deepEqual(d, { action: 'raise', raiseTo: 120, reason: '手牌很好' });
-  const d2 = parseDecision('好的，我考虑一下。{"action":"call","reason":"赔率合适"} 结束。');
+test('parseDecision 容忍 markdown 与 amount_bb 格式', () => {
+  const d = parseDecision('```json\n{"action": "raise", "amount_bb": 6}\n```');
+  assert.ok(d);
+  assert.equal(d!.action, 'raise');
+  assert.equal(d!.amountBB, 6);
+  const d2 = parseDecision('好的。{"action":"call","reason":"赔率合适"} 结束。');
   assert.deepEqual(d2, { action: 'call', reason: '赔率合适' });
 });
 
@@ -54,22 +57,15 @@ test('parseDecision 拒绝非法 JSON 与非法 action', () => {
   assert.equal(parseDecision('{"action":"shove"}'), null);
 });
 
-test('sanitizeDecision 将加注目标钳制在合法区间', () => {
-  const req = makeReq({ minRaiseTo: 40, maxRaiseTo: 200 });
-  const d = sanitizeDecision(req, { action: 'raise', raiseTo: 9999 });
-  // 目标达上限 = 全下
-  assert.equal(d.action, 'all_in');
-  const d2 = sanitizeDecision(req, { action: 'raise', raiseTo: 120 });
-  assert.equal(d2.action, 'raise');
-  assert.equal(d2.raiseTo, 120);
-  const d3 = sanitizeDecision(req, { action: 'raise', raiseTo: 5 });
-  assert.equal(d3.raiseTo, 40, '低于最小加注额时钳制到最小值');
-});
-
-test('sanitizeDecision 全下目标达到上限时转为 all_in', () => {
-  const req = makeReq({ minRaiseTo: 40, maxRaiseTo: 200 });
-  const d = sanitizeDecision(req, { action: 'raise', raiseTo: 200 });
-  assert.equal(d.action, 'all_in');
+test('sanitizeDecision：amount_bb 换算成筹码并钳制合法区间', () => {
+  const req = makeReq({ minRaiseTo: 40, maxRaiseTo: 200, bb: 20 });
+  const d = sanitizeDecision(req, { action: 'raise', amountBB: 6 }); // 6 BB = 120 筹码
+  assert.equal(d.action, 'raise');
+  assert.equal(d.raiseTo, 120);
+  const d2 = sanitizeDecision(req, { action: 'raise', amountBB: 999 });
+  assert.equal(d2.action, 'all_in');
+  const d3 = sanitizeDecision(req, { action: 'raise', amountBB: 1 });
+  assert.equal(d3.raiseTo, 40, '低于最小加注额钳制到最小值');
 });
 
 test('sanitizeDecision 非法 action 降级：check 但需要跟注 → call', () => {
@@ -88,40 +84,45 @@ test('heuristic agent 在极端局面不崩溃且决策合法', async () => {
   for (const s of scenarios) {
     const d = await agent.decide(makeReq(s));
     assert.ok(['fold', 'check', 'call', 'raise', 'all_in'].includes(d.action), `非法决策: ${d.action}`);
-    assert.ok(d.reason, '应有理由');
   }
 });
 
-test('启发式机器人改名：返回合法新名字', async () => {
-  const agent = new HeuristicAgent({ id: 'h1', name: '刀锋' });
-  const reasons = ['big_win', 'busted', 'champion'] as const;
-  for (const reason of reasons) {
-    const name = await agent.rename(reason, { oldName: '刀锋', amount: 1500, takenNames: ['老鬼', '小喵'] });
-    assert.ok(name.length >= 1 && name.length <= 12, `名字长度非法: "${name}"`);
-    assert.ok(!name.includes('\n') && !name.includes('<') && !name.includes('>'), `名字含危险字符: "${name}"`);
-    assert.notEqual(name, '刀锋', '应改出新名字');
-    assert.ok(!['老鬼', '小喵'].includes(name), '不应与现有玩家重名');
-  }
+test('启发式机器人取名：返回合法且唯一的名字', async () => {
+  const a = new HeuristicAgent({ id: 'h1', name: '刀锋' });
+  const a2 = new HeuristicAgent({ id: 'h2', name: '老鬼', seed: 99 });
+  const name = await a.createIdentity();
+  const name2 = await a2.createIdentity();
+  assert.ok(name.length >= 1 && name.length <= 12, `名字非法: "${name}"`);
+  assert.equal(a.currentName, name, '取名后 currentName 同步');
+  assert.notEqual(name, '刀锋');
+  // 唯一化
+  const unique = ensureUniqueName(name, [name], Math.random);
+  assert.notEqual(unique, name);
 });
 
-test('sanitizeName 清洗模型输出', () => {
+test('sanitizeName / parseName 清洗模型输出', () => {
   assert.equal(sanitizeName('  神秘鲨鱼  '), '神秘鲨鱼');
   assert.equal(sanitizeName('"夜枭"'), '夜枭');
   assert.equal(sanitizeName(''), null);
-  assert.equal(sanitizeName('   '), null);
-  assert.equal(sanitizeName('这是一个非常非常长的名字超过十个字了'), '这是一个非常非常长的', '超长名字截断到 10 字');
+  assert.equal(parseName('{"name": "ColdRiver"}'), 'ColdRiver');
+  assert.equal(parseName('{"name": "这是非常非常长的名字超过十个字"}'), '这是非常非常长的名字');
+  assert.equal(parseName('不是JSON'), null);
 });
 
-test('ensureUnique 处理重名', () => {
-  const rng = () => 0.5;
-  assert.equal(ensureUnique('鲨鱼', ['鲨鱼', '老鬼'], rng), '鲨鱼·改');
-  assert.equal(ensureUnique('老鬼', ['老鬼', '老鬼·改'], rng), '老鬼·2.0');
-  assert.equal(ensureUnique('新名字', ['老鬼'], rng), '新名字');
-});
-
-test('词库随机名符合长度要求', () => {
-  for (let i = 0; i < 50; i++) {
-    const name = randomNameFromPool(Math.random);
-    assert.ok(name.length >= 2 && name.length <= 12, `词库名过长: "${name}"`);
+test('nameFromPool 词库名字符合长度', () => {
+  for (let i = 0; i < 30; i++) {
+    const name = nameFromPool(Math.random);
+    assert.ok(name.length >= 1 && name.length <= 12, `词库名非法: "${name}"`);
   }
+});
+
+test('parseTalk 解析发言（空消息=沉默）', () => {
+  assert.equal(parseTalk('{"message": "你确定吗？"}'), '你确定吗？');
+  assert.equal(parseTalk('```json\n{"message": ""}\n```'), '');
+  assert.equal(parseTalk('不是JSON'), '');
+});
+
+test('talkFromPool 返回合法短句', () => {
+  const msg = talkFromPool(Math.random);
+  assert.ok(msg.length > 0 && msg.length <= 40);
 });

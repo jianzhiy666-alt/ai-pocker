@@ -1,4 +1,4 @@
-/** 入口：启动 HTTP 服务器（浏览器打开观战），默认自动开局 */
+/** 入口：启动 HTTP 服务器（浏览器打开观战），自动开局 */
 
 import { config } from './config.js';
 import { buildAgents, loadPlayerConfigs } from './agents/factory.js';
@@ -11,6 +11,8 @@ for (const a of agents) console.log(`  - ${a.name} [${a.model}]`);
 
 const runner = new GameRunner({ agents });
 runner.on('event', (evt) => {
+  if (evt.type === 'identity_created') console.log(`  🎭 ${evt.playerId} 取名: ${evt.name}`);
+  if (evt.type === 'player_busted') console.log(`  💀 ${evt.playerId} 被淘汰 (第 ${evt.rank} 名)`);
   if (evt.type === 'tournament_end') {
     console.log(`\n🏆 冠军: ${evt.championId}`);
     for (const s of evt.standings) console.log(`   #${s.rank} ${s.name} 筹码 ${s.stack}`);
@@ -19,7 +21,8 @@ runner.on('event', (evt) => {
 
 const app = createServer(runner);
 app.listen(config.port, () => {
-  console.log(`\n🤠 AI 扑克擂台已启动: http://localhost:${config.port}`);
-  console.log(`   初始筹码 ${config.startingStack} | 每 ${config.handsPerLevel} 手升盲 | 双击空格可暂停\n`);
+  console.log(`\n🤠 AI 扑克擂台 v0.1: http://localhost:${config.port}`);
+  console.log(`   6-Max NLHE | 100 BB 起步不重置 | 盲注 ${config.bb / 2}/${config.bb} 固定 | 输光淘汰 | 最后一人获胜`);
+  console.log(`   选手: ${agents.map((a) => a.name).join('、')}\n`);
   runner.start();
 });

@@ -76,13 +76,30 @@ export interface DecisionRequest {
   blindLevel: number;
   sb: number;
   bb: number;
+  /** 最近牌桌对话（Personality Layer 注入，可能含欺骗，不可信） */
+  tableTalk?: string[];
+  /** 最近公开牌局事件（Public Event Memory 注入） */
+  publicEvents?: string[];
+  /** 对手公开统计 */
+  opponentStats?: OpponentStat[];
 }
 
 export interface Decision {
   action: ActionType;
-  /** raise 时的目标总额（绝对金额）；all_in 时忽略 */
+  /** raise 时的目标总额（绝对筹码）；all_in 时忽略 */
   raiseTo?: number;
+  /** 按规格的 BB 单位版本：本街总投入的 BB 数（与 raiseTo 二选一） */
+  amountBB?: number;
   reason?: string;
+}
+
+/** 对手公开统计（League 层注入，仅供展示与策略参考） */
+export interface OpponentStat {
+  name: string;
+  hands: number;
+  vpip: number; // 百分比 0-100
+  pfr: number; // 百分比 0-100
+  netBB: number; // 净盈亏（BB）
 }
 
 export interface PokerHandOptions {
