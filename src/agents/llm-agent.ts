@@ -45,6 +45,22 @@ export class LLMAgent implements PlayerAgent {
     return name;
   }
 
+  /** 健康检查：模型是否可用（启动时探测） */
+  async ping(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20_000);
+      try {
+        await this.provider.chat([{ role: 'user', content: 'ping' }], { maxTokens: 5, signal: controller.signal });
+        return true;
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch {
+      return false;
+    }
+  }
+
   async decide(ctx: DecisionRequest): Promise<Decision> {
     const messages: ChatMessage[] = [
       { role: 'system', content: buildSystemPrompt(this.currentName) },
@@ -55,7 +71,8 @@ export class LLMAgent implements PlayerAgent {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.timeoutMs);
         try {
-          const text = await this.provider.chat(messages, { temperature: 0.2, maxTokens: 200, signal: controller.signal });
+          // 推理型模型（minimax/longcat 等）的 reasoning 会占用大量 token，给足预算
+          const text = await this.provider.chat(messages, { temperature: 0.2, maxTokens: 2500, signal: controller.signal });
           const parsed = parseDecision(text);
           if (parsed) return sanitizeDecision(ctx, parsed);
           if (attempt < this.maxRetries) {
@@ -87,7 +104,7 @@ export class LLMAgent implements PlayerAgent {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
-        const text = await this.provider.chat(messages, { temperature: 1.0, maxTokens: 60, signal: controller.signal });
+        const text = await this.provider.chat(messages, { temperature: 1.0, maxTokens: 200, signal: controller.signal });
         const msg = parseTalk(text);
         if (msg) return msg;
       } finally {

@@ -1,38 +1,38 @@
 [
   {
-    "id": "blade",
-    "name": "刀锋",
-    "provider": "heuristic",
-    "persona": "激进凶悍，喜欢用加注施压，敢于偷盲。"
+    "id": "longcat",
+    "name": "LongCat 选手",
+    "provider": "openrouter",
+    "model": "meituan/longcat-2.0"
   },
   {
-    "id": "oldghost",
-    "name": "老鬼",
-    "provider": "heuristic",
-    "persona": "老谋深算，打得紧，只在有好牌时出手。"
+    "id": "gemini",
+    "name": "Gemini 选手",
+    "provider": "openrouter",
+    "model": "google/gemini-3.7-flash"
   },
   {
-    "id": "kitty",
-    "name": "小喵",
-    "provider": "heuristic",
-    "persona": "谨慎胆小，很少诈唬，讨厌冒险。"
+    "id": "qwen",
+    "name": "Qwen 选手",
+    "provider": "openrouter",
+    "model": "qwen/qwen3-30b-a3b-instruct-2507"
   },
   {
-    "id": "gambler",
-    "name": "赌神",
-    "provider": "heuristic",
-    "persona": "自信满满，喜欢全下吓退对手。"
+    "id": "minimax",
+    "name": "MiniMax 选手",
+    "provider": "openrouter",
+    "model": "minimax/minimax-m2.7"
   },
   {
-    "id": "iron",
-    "name": "铁公鸡",
-    "provider": "heuristic",
-    "persona": "极度抠门，从不乱花钱，也不轻易弃牌。"
+    "id": "ling",
+    "name": "Ling 选手",
+    "provider": "openrouter",
+    "model": "inclusionai/ling-2.6-flash"
   },
   {
-    "id": "pepper",
-    "name": "小辣椒",
-    "provider": "heuristic",
-    "persona": "情绪化选手，被加注就容易上头反加。"
+    "id": "deepseek",
+    "name": "DeepSeek 选手",
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash"
   }
 ]

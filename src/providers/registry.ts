@@ -2,6 +2,7 @@
 
 import { OpenAICompatibleProvider } from './openai-compatible.js';
 import type { ChatProvider } from './types.js';
+import { config } from '../config.js';
 
 export type ProviderName = 'openrouter' | 'dashscope' | 'deepseek' | 'gemini' | 'xai';
 
@@ -66,6 +67,7 @@ export function createProvider(name: string, model?: string): ChatProvider | nul
     baseURL: def.baseURL,
     apiKey,
     model: model ?? def.defaultModel,
+    proxy: config.proxy,
     extraHeaders: def.extraHeaders,
   });
 }

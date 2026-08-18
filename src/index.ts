@@ -9,6 +9,13 @@ const agents = buildAgents(loadPlayerConfigs());
 console.log(`选手就绪 (${agents.length} 人):`);
 for (const a of agents) console.log(`  - ${a.name} [${a.model}]`);
 
+// 启动前健康检查：探测每个模型是否可用（不可用的会自动降级为启发式机器人）
+console.log('\n模型健康检查:');
+const results = await Promise.all(agents.map(async (a) => ({ a, ok: (await a.ping?.()) ?? true })));
+for (const { a, ok } of results) {
+  console.log(`  ${ok ? '✅' : '❌'} ${a.name} [${a.model}]${ok ? '' : '  ← 不可用，比赛中将降级为启发式机器人'}`);
+}
+
 const runner = new GameRunner({ agents });
 runner.on('event', (evt) => {
   if (evt.type === 'identity_created') console.log(`  🎭 ${evt.playerId} 取名: ${evt.name}`);

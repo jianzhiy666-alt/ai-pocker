@@ -16,6 +16,8 @@ export const config = {
   handDelayMs: Number(process.env.HAND_DELAY_MS ?? 900),
   actionDelayMs: Number(process.env.ACTION_DELAY_MS ?? 700),
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 45_000),
+  /** 本地代理（VPN/ClashX），所有 LLM 调用统一走它；Gemini 需要美国节点 */
+  proxy: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.http_proxy || '',
   playersPath: PLAYERS_PATH,
 };
 

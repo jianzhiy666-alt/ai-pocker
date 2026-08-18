@@ -1,6 +1,7 @@
 /** OpenAI 兼容 Chat Completions 适配器（OpenRouter / DashScope / DeepSeek / Gemini / xAI 全兼容） */
 
 import OpenAI from 'openai';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { ChatProvider, ChatMessage, ChatOptions } from './types.js';
 
 export interface OpenAICompatibleConfig {
@@ -8,6 +9,8 @@ export interface OpenAICompatibleConfig {
   baseURL: string;
   apiKey: string;
   model: string;
+  /** 本地代理地址，如 http://127.0.0.1:7890 */
+  proxy?: string;
   extraHeaders?: Record<string, string>;
 }
 
@@ -19,13 +22,19 @@ export class OpenAICompatibleProvider implements ChatProvider {
   constructor(cfg: OpenAICompatibleConfig) {
     this.label = cfg.label;
     this.model = cfg.model;
-    this.client = new OpenAI({
+    const clientOpts: ConstructorParameters<typeof OpenAI>[0] = {
       baseURL: cfg.baseURL,
       apiKey: cfg.apiKey,
       defaultHeaders: cfg.extraHeaders,
       maxRetries: 1,
-      timeout: 60_000,
-    });
+      timeout: 90_000,
+    };
+    if (cfg.proxy) {
+      // 统一走本地代理（VPN/ClashX），绕开网络区域限制（Gemini 需美国节点）
+      const agent = new HttpsProxyAgent(cfg.proxy);
+      clientOpts.httpAgent = agent;
+    }
+    this.client = new OpenAI(clientOpts);
   }
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {

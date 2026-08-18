@@ -73,7 +73,7 @@ export async function nameWithProvider(
     try {
       const text = await provider.chat(
         [{ role: 'system', content: buildNamePrompt() }],
-        { temperature: 1.0, maxTokens: 40, signal: controller.signal },
+        { temperature: 1.0, maxTokens: 150, signal: controller.signal },
       );
       const name = parseName(text);
       if (name) return name;

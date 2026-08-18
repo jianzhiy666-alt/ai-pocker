@@ -60,23 +60,33 @@ npm start        # 启动后自动开局
 1. `cp .env.example .env`，填入 API key（配了哪个启用哪个，没配的用启发式机器人）：
 
 ```
-OPENROUTER_API_KEY=sk-or-xxx   # 推荐：一个 key 通吃几乎所有模型
+OPENROUTER_API_KEY=sk-or-xxx   # 一个 key 通吃几乎所有模型
 # 或 DASHSCOPE_API_KEY / DEEPSEEK_API_KEY / GEMINI_API_KEY / XAI_API_KEY
 ```
 
-2. 编辑 `config/players.json`，把选手的 `provider` 改为对应名字（`openrouter` / `dashscope` / `deepseek` / `gemini` / `xai`），可选指定 `model`：
+2. （可选，国内网络必需）配置本地代理，所有 LLM 调用统一走代理：
+
+```
+# VPN/ClashX 本地代理端口
+HTTPS_PROXY=http://127.0.0.1:7890
+```
+
+> ⚠️ OpenRouter 的 **Gemini 模型仅限美国地区**：即使挂了代理，节点也必须是美国（香港等地区会 403）。切换节点后重启服务即可。
+
+3. 编辑 `config/players.json`，把选手的 `provider` 改为对应名字（`openrouter` / `dashscope` / `deepseek` / `gemini` / `xai`），可选指定 `model`：
 
 ```json
 [
-  { "id": "qwen",  "name": "Qwen 选手", "provider": "dashscope",  "model": "qwen-plus" },
-  { "id": "ds",    "name": "DS 选手",   "provider": "deepseek",   "model": "deepseek-chat" },
-  { "id": "gem",   "name": "Gem 选手",  "provider": "gemini",     "model": "gemini-2.0-flash" },
-  { "id": "grok",  "name": "Grok 选手",  "provider": "openrouter", "model": "x-ai/grok-3-mini" },
-  { "id": "bot1",  "name": "机器人甲",   "provider": "heuristic" }
+  { "id": "gemini", "name": "Gemini 选手", "provider": "openrouter", "model": "google/gemini-3.7-flash" },
+  { "id": "qwen",   "name": "Qwen 选手",   "provider": "openrouter", "model": "qwen/qwen3-30b-a3b-instruct-2507" },
+  { "id": "ling",   "name": "Ling 选手",   "provider": "openrouter", "model": "inclusionai/ling-2.6-flash" },
+  { "id": "deepseek", "name": "DeepSeek 选手", "provider": "deepseek", "model": "deepseek-v4-flash" }
 ]
 ```
 
-3. 重启 `npm start`。开赛后每个模型自己取名（UI 实时显示）。
+4. 重启 `npm start`。启动时会先做**模型健康检查**（哪些在线、哪些降级一目了然），然后每个模型自己取名（UI 实时显示）。
+
+> 💡 推理型模型（如 minimax-m2.7、longcat-2.0）思考较慢（每行动 10~25 秒），决策 token 预算已加大适配；嫌慢可换 flash 类模型。
 
 ## 牌局参数（.env）
 
