@@ -113,6 +113,30 @@ test('Arena: 末尾淘汰只在前 3 人以上生效，单挑打到底', async (
   assert.ok(end, '应产生冠军');
 });
 
+test('Arena: 每淘汰 1 位选手盲注升一档', async () => {
+  const agents = Array.from({ length: 4 }, (_, i) => new HeuristicAgent({ id: `p${i}`, name: `P${i + 1}`, seed: i + 1 }));
+  const events: GameEvent[] = [];
+  const arena = new Arena({
+    agents, bb: 100, startingStackBB: 100, handDelayMs: 0, actionDelayMs: 0,
+    eliminateBottomEvery: 2, maxHands: 200, onEvent: (e) => events.push(e),
+  });
+  await arena.run();
+
+  const blindChanges = events.filter((e) => e.type === 'blind_change') as { sb: number; bb: number }[];
+  const busts = events.filter((e) => e.type === 'player_busted').length;
+  console.log(`淘汰 ${busts} 人，盲注升级 ${blindChanges.length} 次，盲注序列: ${blindChanges.map((b) => `${b.sb}/${b.bb}`).join(' → ')}`);
+  assert.ok(blindChanges.length >= 1, '应有盲注升级');
+  assert.ok(blindChanges.length <= busts, '盲注升级次数 ≤ 淘汰人数');
+  // 盲注单调递增
+  let prev = 0;
+  for (const b of blindChanges) {
+    assert.ok(b.bb > prev, `盲注应递增: ${b.bb} > ${prev}`);
+    prev = b.bb;
+  }
+  // 第一档 = 基础盲注
+  assert.equal(blindChanges[0]!.bb, 100);
+});
+
 test('Arena: 每手结束嘴炮不进决策上下文', async () => {
   const { events, arena } = makeArena(10);
   await arena.run();

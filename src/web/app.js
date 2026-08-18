@@ -405,6 +405,11 @@ function handleEvent(evt) {
       renderLevel();
       addLog(`📢 盲注升级：L${evt.level} SB ${evt.sb} / BB ${evt.bb}`, 'system');
       break;
+    case 'blind_change':
+      state.level = evt.level; state.sb = evt.sb; state.bb = evt.bb;
+      renderLevel();
+      addLog(`📢 淘汰后盲注升级：SB ${evt.sb} / BB ${evt.bb}`, 'system');
+      break;
     case 'hand_start': {
       state.handNumber = evt.handNumber;
       state.level = evt.level; state.sb = evt.sb; state.bb = evt.bb;

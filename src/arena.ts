@@ -17,6 +17,9 @@ import { ROOT } from './config.js';
 
 const IDENTITY_CACHE = path.join(ROOT, 'data', 'identities.json');
 
+/** 每淘汰 1 位选手盲注上升的倍率档位（× 基础 BB） */
+const BLIND_MULTIPLIERS = [1, 1.5, 2, 3, 4, 6, 8];
+
 function loadIdentityCache(): Record<string, string> {
   try {
     return JSON.parse(fs.readFileSync(IDENTITY_CACHE, 'utf-8')) as Record<string, string>;
@@ -62,6 +65,8 @@ export class Arena {
   private stacks = new Map<string, number>();
   private aliveIds: string[] = [];
   private bustedOrder: string[] = [];
+  /** 盲注档位：每淘汰 1 人 +1（6 人时 0 档） */
+  private blindLevel = 0;
   /** 本手已广播的公共牌街（flop/turn/river），每手重置 */
   private shownStreets = new Set<string>();
   private rng: () => number;
@@ -102,6 +107,20 @@ export class Arena {
     const a = this.opts.agents.find((x) => x.id === id);
     if (!a) throw new Error(`未知玩家: ${id}`);
     return a;
+  }
+
+  /** 当前盲注（随淘汰人数上升） */
+  private currentBlinds(): { sb: number; bb: number } {
+    const mult = BLIND_MULTIPLIERS[Math.min(this.blindLevel, BLIND_MULTIPLIERS.length - 1)]!;
+    const bb = Math.round(this.opts.bb * mult);
+    return { sb: Math.round(bb / 2), bb };
+  }
+
+  /** 每淘汰 1 人，盲注升一档 */
+  private raiseBlinds(): void {
+    this.blindLevel++;
+    const { sb, bb } = this.currentBlinds();
+    this.emit({ type: 'blind_change', level: this.blindLevel, sb, bb, handNumber: this.handNumber });
   }
 
   /** 比赛形势文本：淘汰赛压力（排名 + 末尾淘汰倒计时），让 AI 有必须赢的紧迫感 */
@@ -152,6 +171,7 @@ export class Arena {
     this.running = true;
     this.stopRequested = false;
     this.handNumber = 0;
+    this.blindLevel = 0;
     this.bustedOrder = [];
     this.stacks.clear();
     this.aliveIds = this.opts.agents.map((a) => a.id);
@@ -220,15 +240,15 @@ export class Arena {
   }
 
   private async playHand(dealerIdx: number): Promise<void> {
-    const { bb } = this.opts;
+    const { sb, bb } = this.currentBlinds();
     const seeds: PlayerSeed[] = this.aliveIds.map((id) => ({ id, name: this.agentById(id).currentName, stack: this.stacks.get(id)! }));
     const hand = new PokerHand({
       players: seeds,
       dealerIndex: dealerIdx,
-      sb: 0.5 * bb,
+      sb,
       bb,
       handNumber: this.handNumber,
-      blindLevel: 0,
+      blindLevel: this.blindLevel,
       rng: this.rng,
     });
     hand.deal();
@@ -248,7 +268,7 @@ export class Arena {
         lastAction: p.lastAction,
       }));
 
-    this.emit({ type: 'hand_start', handNumber: this.handNumber, level: 1, sb: 0.5 * bb, bb, dealerId: seeds[dealerIdx]!.id, players: view() });
+    this.emit({ type: 'hand_start', handNumber: this.handNumber, level: this.blindLevel, sb, bb, dealerId: seeds[dealerIdx]!.id, players: view() });
     for (const p of hand.players) {
       this.emit({ type: 'hole_cards', playerId: p.id, cards: p.holeCards.map((c) => `${c.rank}${c.suit}`) });
     }
@@ -307,7 +327,7 @@ export class Arena {
         winners: result.winners.map((w) => ({ playerId: w.playerId, amount: w.amount, hand: w.hand })),
         pots: result.pots.map((p) => ({ amount: p.amount, winners: p.winners.map((w) => ({ playerId: w.playerId, amount: w.amount })) })),
       });
-      const potBB = result.pots.reduce((s, p) => s + p.amount, 0) / this.opts.bb;
+      const potBB = result.pots.reduce((s, p) => s + p.amount, 0) / bb;
       const w = result.winners[0]!;
       const winner = this.agentById(w.playerId);
       resultText = `${winner.currentName} 赢下 ${potBB.toFixed(1)} BB 底池${w.hand ? `（${w.hand}）` : ''}`;
@@ -333,6 +353,7 @@ export class Arena {
 
     // 末尾淘汰：每 N 手淘汰筹码最少者（与筹码清零并行）；只剩 2 人（单挑）时不再末尾淘汰，打到底
     const every = this.opts.eliminateBottomEvery ?? 0;
+    let bottomEliminated = false;
     if (every > 0 && this.handNumber % every === 0 && this.aliveIds.length > 2) {
       const bottom = [...this.aliveIds].sort((a, b) => (this.stacks.get(a) ?? 0) - (this.stacks.get(b) ?? 0))[0]!;
       if ((this.stacks.get(bottom) ?? 0) > 0) {
@@ -340,8 +361,13 @@ export class Arena {
         const rank = this.aliveIds.length;
         this.emit({ type: 'player_busted', playerId: bottom, rank, finalStack: this.stacks.get(bottom) ?? 0, reason: 'bottom' });
         this.aliveIds = this.aliveIds.filter((id) => id !== bottom);
+        bottomEliminated = true;
       }
     }
+
+    // 每淘汰 1 位选手，盲注升一档（更刺激）
+    const eliminatedCount = bustedNow.length + (bottomEliminated ? 1 : 0);
+    for (let i = 0; i < eliminatedCount; i++) this.raiseBlinds();
 
     // 每手结束：存活 AI 各说一句话（纯给观众看）
     if (!this.stopRequested) {

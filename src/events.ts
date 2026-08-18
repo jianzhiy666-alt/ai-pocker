@@ -24,6 +24,7 @@ export type GameEvent =
       players: { id: string; name: string; kind: string; model: string }[];
       startingStack: number;
     }
+  | { type: 'blind_change'; level: number; sb: number; bb: number; handNumber: number }
   | { type: 'hand_start'; handNumber: number; level: number; sb: number; bb: number; dealerId: string; players: TablePlayerView[] }
   | { type: 'hole_cards'; playerId: string; cards: string[] }
   | { type: 'street'; street: Street; cards: string[] }
