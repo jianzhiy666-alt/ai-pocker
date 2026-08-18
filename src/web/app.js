@@ -82,8 +82,8 @@ function renderSeats() {
           <span class="badge sb" style="display:none">SB</span>
           <span class="badge bb" style="display:none">BB</span>
         </div>
-        <div class="folded-flag" style="display:none">弃牌</div>
         <div class="name" title="${p.name}">${p.name}</div>
+        <div class="seat-status"></div>
         <div class="model" title="${p.model}">${p.model}</div>
         <div class="stack">${p.stack}</div>
         <div class="hole"></div>
@@ -205,7 +205,18 @@ function updateSeat(p) {
   seat.classList.toggle('folded', !!p.folded);
   seat.classList.toggle('busted', !!p.busted);
   seat.classList.toggle('active', !!p.isActive);
-  seat.querySelector('.folded-flag').style.display = p.folded ? 'inline-block' : 'none';
+  // 名字下方持续标注状态：弃牌/全下（新手牌开始时由 hand_start 重置）
+  const statusEl = seat.querySelector('.seat-status');
+  if (p.folded) {
+    statusEl.textContent = '🚫 弃牌';
+    statusEl.className = 'seat-status folded';
+  } else if (p.allIn) {
+    statusEl.textContent = '🃏 全下';
+    statusEl.className = 'seat-status allin';
+  } else {
+    statusEl.textContent = '';
+    statusEl.className = 'seat-status';
+  }
   const flag = seat.querySelector('.action-flag');
   if (p.lastAction) {
     flag.textContent = ACTION_CN[p.lastAction] ?? p.lastAction;
