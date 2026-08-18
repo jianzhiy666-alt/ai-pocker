@@ -4,6 +4,7 @@ import { PlayerAgent } from './types.js';
 import { Decision, DecisionRequest } from '../poker/game.js';
 import { evaluate7 } from '../poker/evaluator.js';
 import { RANK_VALUE } from '../poker/cards.js';
+import { RenameContext, RenameReason, randomNameFromPool, sanitizeName, ensureUnique } from './rename.js';
 
 export interface HeuristicAgentOptions {
   id: string;
@@ -40,6 +41,7 @@ function highValue(v: number): number {
 export class HeuristicAgent implements PlayerAgent {
   readonly id: string;
   readonly name: string;
+  currentName: string;
   readonly kind = 'heuristic' as const;
   readonly model = '启发式机器人';
   private rand: () => number;
@@ -47,11 +49,18 @@ export class HeuristicAgent implements PlayerAgent {
   constructor(opts: HeuristicAgentOptions) {
     this.id = opts.id;
     this.name = opts.name;
+    this.currentName = opts.name;
     let s = opts.seed ?? 42;
     this.rand = () => {
       s = (s * 1103515245 + 12345) % 2147483648;
       return s / 2147483648;
     };
+  }
+
+  async rename(reason: RenameReason, ctx: RenameContext): Promise<string> {
+    const name = randomNameFromPool(this.rand);
+    const clean = sanitizeName(name) ?? `${ctx.oldName}·改`;
+    return ensureUnique(clean, ctx.takenNames ?? [], this.rand);
   }
 
   async decide(ctx: DecisionRequest): Promise<Decision> {

@@ -48,5 +48,6 @@ export type GameEvent =
     }
   | { type: 'hand_end'; handNumber: number; players: TablePlayerView[] }
   | { type: 'player_busted'; playerId: string; rank: number; finalStack: number }
+  | { type: 'player_renamed'; playerId: string; oldName: string; newName: string; reason: 'big_win' | 'busted' | 'champion' }
   | { type: 'tournament_end'; championId: string; standings: { playerId: string; name: string; stack: number; rank: number; kind: string; model: string }[] }
   | { type: 'note'; text: string };

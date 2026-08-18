@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderState, parseDecision, sanitizeDecision } from './prompt.js';
 import { HeuristicAgent } from './heuristic-agent.js';
+import { sanitizeName, ensureUnique, randomNameFromPool } from './rename.js';
 import { DecisionRequest, ActionType } from '../poker/game.js';
 import { Card } from '../poker/cards.js';
 
@@ -88,5 +89,39 @@ test('heuristic agent 在极端局面不崩溃且决策合法', async () => {
     const d = await agent.decide(makeReq(s));
     assert.ok(['fold', 'check', 'call', 'raise', 'all_in'].includes(d.action), `非法决策: ${d.action}`);
     assert.ok(d.reason, '应有理由');
+  }
+});
+
+test('启发式机器人改名：返回合法新名字', async () => {
+  const agent = new HeuristicAgent({ id: 'h1', name: '刀锋' });
+  const reasons = ['big_win', 'busted', 'champion'] as const;
+  for (const reason of reasons) {
+    const name = await agent.rename(reason, { oldName: '刀锋', amount: 1500, takenNames: ['老鬼', '小喵'] });
+    assert.ok(name.length >= 1 && name.length <= 12, `名字长度非法: "${name}"`);
+    assert.ok(!name.includes('\n') && !name.includes('<') && !name.includes('>'), `名字含危险字符: "${name}"`);
+    assert.notEqual(name, '刀锋', '应改出新名字');
+    assert.ok(!['老鬼', '小喵'].includes(name), '不应与现有玩家重名');
+  }
+});
+
+test('sanitizeName 清洗模型输出', () => {
+  assert.equal(sanitizeName('  神秘鲨鱼  '), '神秘鲨鱼');
+  assert.equal(sanitizeName('"夜枭"'), '夜枭');
+  assert.equal(sanitizeName(''), null);
+  assert.equal(sanitizeName('   '), null);
+  assert.equal(sanitizeName('这是一个非常非常长的名字超过十个字了'), '这是一个非常非常长的', '超长名字截断到 10 字');
+});
+
+test('ensureUnique 处理重名', () => {
+  const rng = () => 0.5;
+  assert.equal(ensureUnique('鲨鱼', ['鲨鱼', '老鬼'], rng), '鲨鱼·改');
+  assert.equal(ensureUnique('老鬼', ['老鬼', '老鬼·改'], rng), '老鬼·2.0');
+  assert.equal(ensureUnique('新名字', ['老鬼'], rng), '新名字');
+});
+
+test('词库随机名符合长度要求', () => {
+  for (let i = 0; i < 50; i++) {
+    const name = randomNameFromPool(Math.random);
+    assert.ok(name.length >= 2 && name.length <= 12, `词库名过长: "${name}"`);
   }
 });

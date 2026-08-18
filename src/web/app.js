@@ -84,6 +84,11 @@ function renderSeats() {
 function updateSeat(p) {
   const seat = document.getElementById(`seat-${p.id}`);
   if (!seat) return;
+  const nameEl = seat.querySelector('.name');
+  if (nameEl && nameEl.textContent !== p.name) {
+    nameEl.textContent = p.name;
+    nameEl.title = p.name;
+  }
   seat.querySelector('.stack').textContent = p.stack;
   seat.querySelector('.badge.d').style.display = p.isDealer ? 'inline-block' : 'none';
   seat.querySelector('.badge.sb').style.display = p.isSB ? 'inline-block' : 'none';
@@ -278,6 +283,17 @@ function handleEvent(evt) {
       updateSeat(p);
       updateRankings();
       addLog(`💀 <span class="who" style="color:${p.color}">${p.name}</span> 筹码清零，被淘汰（第 ${evt.rank} 名）`, 'bust');
+      break;
+    }
+    case 'player_renamed': {
+      const p = state.players.get(evt.playerId);
+      if (!p) break;
+      const emoji = evt.reason === 'champion' ? '👑' : evt.reason === 'big_win' ? '🔥' : '🪦';
+      const reasonText = evt.reason === 'champion' ? '夺冠加冕' : evt.reason === 'big_win' ? '赢下大底池，膨胀了' : '临别遗言';
+      p.name = evt.newName;
+      updateSeat(p);
+      updateRankings();
+      addLog(`${emoji} <span class="who" style="color:${p.color}">${escapeHtml(evt.oldName)}</span> → <b>${escapeHtml(evt.newName)}</b> <span class="sub">(${reasonText})</span>`, 'rename');
       break;
     }
     case 'tournament_end': {

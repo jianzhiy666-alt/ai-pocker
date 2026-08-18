@@ -4,6 +4,7 @@ import { PokerHand, PlayerSeed } from './poker/game.js';
 import type { DecisionRequest } from './poker/game.js';
 import type { GameEvent, TablePlayerView } from './events.js';
 import type { PlayerAgent } from './agents/types.js';
+import type { RenameReason } from './agents/rename.js';
 
 /** 盲注表（SB, BB），逐级上涨 */
 export const BLIND_SCHEDULE: [number, number][] = [
@@ -40,6 +41,8 @@ export class Tournament {
   private handNumber = 0;
   private level = 1;
   private handsInLevel = 0;
+  /** 每位玩家上次改名的手数（大底池改名有冷却） */
+  private lastRenameHand = new Map<string, number>();
 
   constructor(opts: TournamentOptions) {
     this.opts = opts;
@@ -111,13 +114,16 @@ export class Tournament {
 
     if (!this.stopRequested && this.aliveIds.length > 0) {
       const championId = this.aliveIds[0]!;
+      const champ = agents.find((a) => a.id === championId)!;
+      // 夺冠加冕：给自己起个霸气新名字
+      await this.tryRename(champ, 'champion');
       const standings = [
-        { playerId: championId, name: agents.find((a) => a.id === championId)!.name, stack: this.stacks.get(championId)!, rank: 1, kind: agents.find((a) => a.id === championId)!.kind, model: agents.find((a) => a.id === championId)!.model },
+        { playerId: championId, name: champ.currentName, stack: this.stacks.get(championId)!, rank: 1, kind: champ.kind, model: champ.model },
         ...this.busted
           .sort((a, b) => a.rank - b.rank)
           .map((b) => {
             const a = agents.find((x) => x.id === b.playerId)!;
-            return { playerId: b.playerId, name: a.name, stack: 0, rank: b.rank, kind: a.kind, model: a.model };
+            return { playerId: b.playerId, name: a.currentName, stack: 0, rank: b.rank, kind: a.kind, model: a.model };
           }),
       ];
       this.emit({ type: 'tournament_end', championId, standings });
@@ -126,7 +132,7 @@ export class Tournament {
 
   private async playHand(dealerIdx: number, sb: number, bb: number): Promise<void> {
     this.handNumber++;
-    const seeds: PlayerSeed[] = this.aliveIds.map((id) => ({ id, name: this.agentName(id), stack: this.stacks.get(id)! }));
+    const seeds: PlayerSeed[] = this.aliveIds.map((id) => ({ id, name: this.agentById(id).currentName, stack: this.stacks.get(id)! }));
     const hand = new PokerHand({
       players: seeds,
       dealerIndex: dealerIdx,
@@ -214,6 +220,22 @@ export class Tournament {
     for (const p of hand.players) this.stacks.set(p.id, p.stack);
     this.emit({ type: 'hand_end', handNumber: this.handNumber, players: view() });
 
+    // 赢下大底池的玩家：膨胀改名（带概率与冷却，避免刷屏）
+    if (result) {
+      const threshold = Math.max(this.opts.startingStack * 0.4, bb * 20);
+      for (const w of result.winners) {
+        if (w.amount < threshold) continue;
+        const agent = this.agentById(w.playerId);
+        if (!agent) continue;
+        const last = this.lastRenameHand.get(agent.id) ?? -99;
+        if (this.handNumber - last < 5) continue;
+        if (Math.random() < 0.55) {
+          this.lastRenameHand.set(agent.id, this.handNumber);
+          await this.tryRename(agent, 'big_win', w.amount);
+        }
+      }
+    }
+
     // 淘汰
     const newAlive: string[] = [];
     for (const id of this.aliveIds) {
@@ -226,12 +248,27 @@ export class Tournament {
       const rank = this.aliveIds.length - i;
       this.busted.push({ playerId: id, rank, finalStack: 0 });
       this.emit({ type: 'player_busted', playerId: id, rank, finalStack: 0 });
+      // 遗言改名：被淘汰了也要留下个响亮的最终名号
+      await this.tryRename(this.agentById(id), 'busted');
     }
     this.aliveIds = newAlive;
   }
 
-  private agentName(id: string): string {
-    return this.opts.agents.find((a) => a.id === id)!.name;
+  /** 让 AI 给自己改名并广播 */
+  private async tryRename(agent: PlayerAgent, reason: RenameReason, amount?: number): Promise<void> {
+    const oldName = agent.currentName;
+    const taken = this.opts.agents.filter((a) => a.id !== agent.id).map((a) => a.currentName);
+    const newName = await agent.rename(reason, { oldName, amount, takenNames: taken });
+    if (newName && newName !== oldName) {
+      agent.currentName = newName;
+      this.emit({ type: 'player_renamed', playerId: agent.id, oldName, newName, reason });
+    }
+  }
+
+  private agentById(id: string): PlayerAgent {
+    const a = this.opts.agents.find((x) => x.id === id);
+    if (!a) throw new Error(`未知玩家: ${id}`);
+    return a;
   }
 }
 
