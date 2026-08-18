@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSkillGuide } from './skill-library.js';
+import { buildSkillGuide, analyzeDraws } from './skill-library.js';
 import { renderState } from './prompt.js';
 import { DecisionRequest } from '../poker/game.js';
 import { Card } from '../poker/cards.js';
@@ -84,4 +84,46 @@ test('翻后技能库：没成牌建议控池/诈唬，并给出赔率提示', (
 test('renderState 已注入技能库段', () => {
   const text = renderState(makeReq());
   assert.ok(text.includes('技能库'));
+});
+
+test('听牌分析：7J + 公牌 983 是卡顺（T 成顺，4 outs）', () => {
+  const d = analyzeDraws(
+    [{ rank: '7', suit: '♥' } as Card, { rank: 'J', suit: '♠' } as Card],
+    [{ rank: '9', suit: '♦' } as Card, { rank: '8', suit: '♣' } as Card, { rank: '3', suit: '♠' } as Card],
+  );
+  assert.equal(d.straightType, 'gutshot');
+  assert.equal(d.straightOuts, 4);
+  assert.equal(d.flushDraw, false);
+});
+
+test('听牌分析：78 + 公牌 9TK 是两头顺（8 outs）', () => {
+  const d = analyzeDraws(
+    [{ rank: '7', suit: '♥' } as Card, { rank: '8', suit: '♠' } as Card],
+    [{ rank: '9', suit: '♦' } as Card, { rank: 'T', suit: '♣' } as Card, { rank: 'K', suit: '♠' } as Card],
+  );
+  assert.equal(d.straightType, 'open-ended');
+  assert.equal(d.straightOuts, 8);
+});
+
+test('听牌分析：4 张同花是同花听', () => {
+  const d = analyzeDraws(
+    [{ rank: 'A', suit: '♥' } as Card, { rank: 'K', suit: '♥' } as Card],
+    [{ rank: '2', suit: '♥' } as Card, { rank: '7', suit: '♥' } as Card, { rank: '9', suit: '♦' } as Card],
+  );
+  assert.equal(d.flushDraw, true);
+  assert.ok(d.totalOuts >= 9);
+});
+
+test('技能库翻后指导包含听牌信息', () => {
+  const req = makeReq({
+    street: 'flop',
+    holeCards: [{ rank: '7', suit: '♥' } as Card, { rank: 'J', suit: '♠' } as Card],
+    communityCards: [{ rank: '9', suit: '♦' } as Card, { rank: '8', suit: '♣' } as Card, { rank: '3', suit: '♠' } as Card],
+    toCall: 100,
+    pot: 400,
+  });
+  const g = buildSkillGuide(req);
+  assert.ok(g.includes('卡顺听'), `应识别卡顺听: ${g}`);
+  assert.ok(g.includes('4 张成牌牌'), '应给出 outs 数');
+  assert.ok(g.includes('%'), '应给出胜率/赔率');
 });
