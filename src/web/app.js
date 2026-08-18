@@ -397,6 +397,8 @@ function handleEvent(evt) {
       p.stack = evt.stack;
       p.lastAction = evt.action;
       p.isActive = false;
+      p.folded = evt.folded; // 弃牌后持续标注（直到新手牌 hand_start 重置）
+      p.allIn = evt.allIn;
       state.pot = evt.pot;
       updateSeat(p);
       renderCommunity();

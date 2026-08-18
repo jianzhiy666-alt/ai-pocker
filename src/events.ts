@@ -39,6 +39,8 @@ export type GameEvent =
       stack: number;
       committed: number;
       pot: number;
+      folded: boolean;
+      allIn: boolean;
     }
   | {
       type: 'showdown';

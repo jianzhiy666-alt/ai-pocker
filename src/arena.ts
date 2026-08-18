@@ -280,6 +280,8 @@ export class Arena {
         stack: actor.stack,
         committed: actor.committed,
         pot: hand.potTotal(),
+        folded: actor.folded,
+        allIn: actor.allIn,
       });
       await sleep(this.opts.actionDelayMs);
     }
