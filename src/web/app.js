@@ -323,6 +323,7 @@ function handleEvent(evt) {
       state.community = [];
       state.pot = 0;
       state.streetName = '翻前';
+      $('#hand-count').textContent = `· 第 ${evt.handNumber} 局`;
       for (const v of evt.players) {
         const p = state.players.get(v.id);
         if (!p) continue;
@@ -435,6 +436,7 @@ function handleEvent(evt) {
     }
     case 'tournament_end': {
       updateRankings();
+      $('#hand-count').textContent = '· 已结束';
       const champ = state.players.get(evt.championId);
       const banner = $('#champion-banner');
       banner.innerHTML = `<div class="inner"><h2>🏆 ${champ ? champ.name : evt.championId} 夺冠！</h2><p>最终排名</p>`;
