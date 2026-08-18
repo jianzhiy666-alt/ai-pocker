@@ -94,6 +94,25 @@ test('Arena: 末尾淘汰——每 N 手淘汰筹码最少者，与清零淘汰�
   }
 });
 
+test('Arena: 末尾淘汰只在前 3 人以上生效，单挑打到底', async () => {
+  const agents = Array.from({ length: 3 }, (_, i) => new HeuristicAgent({ id: `p${i}`, name: `P${i + 1}`, seed: i + 1 }));
+  const events: GameEvent[] = [];
+  const arena = new Arena({
+    agents, bb: 20, startingStackBB: 100, handDelayMs: 0, actionDelayMs: 0,
+    eliminateBottomEvery: 2, maxHands: 400, onEvent: (e) => events.push(e),
+  });
+  await arena.run();
+
+  const busts = events.filter((e) => e.type === 'player_busted') as { reason: string }[];
+  const bottom = busts.filter((b) => b.reason === 'bottom');
+  const chips = busts.filter((b) => b.reason === 'chips');
+  assert.ok(bottom.length <= 1, `3 人局末尾淘汰最多 1 次（3→2），实际 ${bottom.length} 次`);
+  assert.ok(chips.length >= 1, `单挑阶段应通过筹码清零决出，实际清零 ${chips.length} 次`);
+  assert.equal(busts.length, 2, '3 人局共淘汰 2 人');
+  const end = events.find((e) => e.type === 'tournament_end');
+  assert.ok(end, '应产生冠军');
+});
+
 test('Arena: 每手结束嘴炮不进决策上下文', async () => {
   const { events, arena } = makeArena(10);
   await arena.run();

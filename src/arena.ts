@@ -114,7 +114,9 @@ export class Arena {
     const parts: string[] = [
       `【比赛形势】第 ${this.handNumber} 手 | 存活 ${total} 人 | 你的筹码排名第 ${rank}/${total}`,
     ];
-    if (every > 0 && total > 1) {
+    if (total === 2) {
+      parts.push('⚡ 单挑模式：不再末尾淘汰，一方输光为止——每一手都是生死战，必须赢得底池！');
+    } else if (every > 0) {
       const handsUntil = every - (this.handNumber % every || every);
       parts.push(`⚡ 淘汰赛规则：每 ${every} 手末尾淘汰筹码最少者！距离下次末尾淘汰还有 ${handsUntil} 手`);
       if (rank === total) parts.push('🚨 警告：你目前是全场筹码最少者，下一轮末尾淘汰随时可能出局！必须主动赢下底池！');
@@ -329,9 +331,9 @@ export class Arena {
     }
     this.aliveIds = newAlive;
 
-    // 末尾淘汰：每 N 手淘汰筹码最少者（与筹码清零并行）
+    // 末尾淘汰：每 N 手淘汰筹码最少者（与筹码清零并行）；只剩 2 人（单挑）时不再末尾淘汰，打到底
     const every = this.opts.eliminateBottomEvery ?? 0;
-    if (every > 0 && this.handNumber % every === 0 && this.aliveIds.length > 1) {
+    if (every > 0 && this.handNumber % every === 0 && this.aliveIds.length > 2) {
       const bottom = [...this.aliveIds].sort((a, b) => (this.stacks.get(a) ?? 0) - (this.stacks.get(b) ?? 0))[0]!;
       if ((this.stacks.get(bottom) ?? 0) > 0) {
         this.bustedOrder.push(bottom);
