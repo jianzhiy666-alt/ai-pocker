@@ -184,6 +184,16 @@ main {
 .seat .name { font-size: 13px; font-weight: 700; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .model { font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .stack { font-size: 13px; font-weight: 700; color: var(--gold); margin-top: 2px; }
+.seat .stack.gain { animation: chipGain 1.2s ease; color: #7CFC00; }
+.seat .stack.loss { animation: chipLoss 1.2s ease; color: #ff8787; }
+@keyframes chipGain {
+  0% { transform: scale(1.5); text-shadow: 0 0 12px #7CFC00; }
+  100% { transform: scale(1); text-shadow: none; }
+}
+@keyframes chipLoss {
+  0% { transform: scale(0.85); text-shadow: 0 0 8px #ff8787; }
+  100% { transform: scale(1); text-shadow: none; }
+}
 .seat .hole { display: flex; gap: 3px; justify-content: center; margin-top: 5px; min-height: 40px; }
 .seat .bet-chip {
   position: absolute; top: -8px; right: -6px;

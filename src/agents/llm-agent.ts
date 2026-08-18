@@ -26,6 +26,8 @@ export class LLMAgent implements PlayerAgent {
   private timeoutMs: number;
   private maxRetries: number;
   private fallback: HeuristicAgent;
+  /** 当前进行中的模型调用（供暂停时中断） */
+  private currentController: AbortController | null = null;
 
   constructor(opts: LLMAgentOptions) {
     this.id = opts.id;
@@ -68,14 +70,20 @@ export class LLMAgent implements PlayerAgent {
     return new Promise((r) => setTimeout(r, ms));
   }
 
+  /** 中断当前进行中的模型调用（暂停时立即生效） */
+  cancel(): void {
+    this.currentController?.abort();
+  }
+
   async decide(ctx: DecisionRequest): Promise<Decision> {
     const messages: ChatMessage[] = [
       { role: 'system', content: buildSystemPrompt(this.currentName) },
       { role: 'user', content: renderState(ctx) },
     ];
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const controller = new AbortController();
       try {
-        const controller = new AbortController();
+        this.currentController = controller;
         const timer = setTimeout(() => controller.abort(), this.timeoutMs);
         try {
           // 推理型模型（minimax/longcat 等）的 reasoning 会占用大量 token，给足预算
@@ -89,8 +97,13 @@ export class LLMAgent implements PlayerAgent {
           }
         } finally {
           clearTimeout(timer);
+          this.currentController = null;
         }
       } catch (err) {
+        if (controller.signal.aborted) {
+          // 外部中断（用户暂停）：静默快速接管，比赛会在下一轮循环真正暂停
+          return this.markFallback(await this.fallback.decide(ctx));
+        }
         const msg = err instanceof Error ? err.message : String(err);
         if (attempt < this.maxRetries) {
           await this.sleep(1200 * (attempt + 1)); // 瞬时限流(429)退避
@@ -120,6 +133,7 @@ export class LLMAgent implements PlayerAgent {
     ];
     try {
       const controller = new AbortController();
+      this.currentController = controller;
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
         const text = await this.provider.chat(messages, { temperature: 1.0, maxTokens: 200, signal: controller.signal });
@@ -127,6 +141,7 @@ export class LLMAgent implements PlayerAgent {
         if (msg) return msg;
       } finally {
         clearTimeout(timer);
+        this.currentController = null;
       }
     } catch {
       // 失败走词库

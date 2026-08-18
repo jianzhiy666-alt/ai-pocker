@@ -37,12 +37,18 @@ function layoutSeats() {
   });
 }
 
+/* 显示用牌面文本：T → 10（引擎和 AI 用标准 T 记法，观众界面用 10） */
+function cardText(card) {
+  return (card[0] === 'T' ? '10' : card[0]) + card[1];
+}
+
 function cardEl(card, small) {
   const div = document.createElement('div');
   div.className = `card ${small ? 'small' : ''} ${RED_SUITS.has(card[1]) ? 'red' : ''}`;
+  const rankText = card[0] === 'T' ? '10' : card[0];
   const corner = document.createElement('span');
   corner.className = 'corner';
-  corner.textContent = card[0];
+  corner.textContent = rankText;
   const suit = document.createElement('span');
   suit.className = 'suit';
   suit.textContent = card[1];
@@ -90,7 +96,15 @@ function updateSeat(p) {
     nameEl.textContent = p.name;
     nameEl.title = p.name;
   }
-  seat.querySelector('.stack').textContent = p.stack;
+  const stackEl = seat.querySelector('.stack');
+  const prev = Number(stackEl.dataset.v ?? '');
+  if (prev && p.stack !== prev) {
+    stackEl.classList.remove('gain', 'loss');
+    void stackEl.offsetWidth; // 重启动画
+    stackEl.classList.add(p.stack > prev ? 'gain' : 'loss');
+  }
+  stackEl.dataset.v = String(p.stack);
+  stackEl.textContent = p.stack;
   seat.querySelector('.badge.d').style.display = p.isDealer ? 'inline-block' : 'none';
   seat.querySelector('.badge.sb').style.display = p.isSB ? 'inline-block' : 'none';
   seat.querySelector('.badge.bb').style.display = p.isBB ? 'inline-block' : 'none';
@@ -242,7 +256,7 @@ function handleEvent(evt) {
       state.community = evt.cards;
       state.streetName = evt.street === 'flop' ? '翻牌' : evt.street === 'turn' ? '转牌' : '河牌';
       renderCommunity();
-      if (evt.cards.length) addLog(`🂠 ${state.streetName}: ${evt.cards.join(' ')}`, 'system');
+      if (evt.cards.length) addLog(`🂠 ${state.streetName}: ${evt.cards.map(cardText).join(' ')}`, 'system');
       break;
     case 'actor': {
       for (const p of state.players.values()) p.isActive = false;
@@ -292,7 +306,11 @@ function handleEvent(evt) {
       for (const w of evt.winners) {
         const p = state.players.get(w.playerId);
         if (!p) continue;
-        addLog(`🏆 <span class="who" style="color:${p.color}">${p.name}</span> 赢得 ${w.amount}${w.hand ? `（${escapeHtml(w.hand)}）` : ''}`, 'showdown');
+        if (w.hand) {
+          addLog(`🏆 <span class="who" style="color:${p.color}">${p.name}</span> 以 ${escapeHtml(w.hand)} 赢下底池 ${w.amount}！`, 'showdown');
+        } else {
+          addLog(`🃏 无人跟注，<span class="who" style="color:${p.color}">${p.name}</span> 直接收下底池 ${w.amount}`, 'showdown');
+        }
       }
       break;
     }

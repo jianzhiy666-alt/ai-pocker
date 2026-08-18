@@ -78,6 +78,8 @@ export class Arena {
 
   pause(): void {
     this.paused = true;
+    // 立即中断进行中的模型思考，让暂停马上生效
+    for (const a of this.opts.agents) a.cancel?.();
   }
   resume(): void {
     this.paused = false;

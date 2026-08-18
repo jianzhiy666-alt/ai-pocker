@@ -17,6 +17,8 @@ export interface PlayerAgent {
   createIdentity(): Promise<string>;
   /** 健康检查：该智能体背后的模型是否可用（启动时探测用） */
   ping?(): Promise<boolean>;
+  /** 中断当前正在进行的思考（暂停时调用，立即停止等待） */
+  cancel?(): void;
   /** 扑克决策（独立调用，输出严格 JSON：action + amount_bb） */
   decide(ctx: DecisionRequest): Promise<Decision>;
   /** 每手结束说一句话（纯给观众看，不进入任何 AI 的决策上下文） */
