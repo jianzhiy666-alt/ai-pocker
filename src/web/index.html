@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🤠 AI 扑克擂台 — 德州扑克 AI 对战</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>🤠 AI 扑克擂台</h1>
+      <span id="level-info" class="level-info"></span>
+    </div>
+    <div class="controls">
+      <button id="btn-pause" class="primary">⏸ 暂停</button>
+      <button id="btn-restart">🔄 新一局</button>
+      <label class="speed">
+        速度
+        <select id="speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+          <option value="8">8×</option>
+        </select>
+      </label>
+      <span id="conn" class="conn">连接中…</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="table-wrap">
+      <div id="table">
+        <div id="community">
+          <div id="community-cards">
+            <div class="card back"></div>
+            <div class="card back"></div>
+            <div class="card back"></div>
+            <div class="card back"></div>
+            <div class="card back"></div>
+          </div>
+          <div id="pot">底池 0</div>
+          <div id="hand-num"></div>
+        </div>
+        <div id="seats"></div>
+      </div>
+      <div id="champion-banner" class="hidden"></div>
+    </section>
+
+    <aside id="sidebar">
+      <div id="rankings">
+        <h2>🏆 战况</h2>
+        <ul id="ranking-list"></ul>
+      </div>
+      <div id="log">
+        <h2>📜 牌局直播</h2>
+        <div id="log-body"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

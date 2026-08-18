@@ -1,0 +1,38 @@
+[
+  {
+    "id": "blade",
+    "name": "刀锋",
+    "provider": "heuristic",
+    "persona": "激进凶悍，喜欢用加注施压，敢于偷盲。"
+  },
+  {
+    "id": "oldghost",
+    "name": "老鬼",
+    "provider": "heuristic",
+    "persona": "老谋深算，打得紧，只在有好牌时出手。"
+  },
+  {
+    "id": "kitty",
+    "name": "小喵",
+    "provider": "heuristic",
+    "persona": "谨慎胆小，很少诈唬，讨厌冒险。"
+  },
+  {
+    "id": "gambler",
+    "name": "赌神",
+    "provider": "heuristic",
+    "persona": "自信满满，喜欢全下吓退对手。"
+  },
+  {
+    "id": "iron",
+    "name": "铁公鸡",
+    "provider": "heuristic",
+    "persona": "极度抠门，从不乱花钱，也不轻易弃牌。"
+  },
+  {
+    "id": "pepper",
+    "name": "小辣椒",
+    "provider": "heuristic",
+    "persona": "情绪化选手，被加注就容易上头反加。"
+  }
+]
