@@ -62,10 +62,10 @@ export class HeuristicAgent implements PlayerAgent {
     return this.currentName;
   }
 
-  async talk(_ctx: TalkContext): Promise<string> {
+  async talk(ctx: TalkContext): Promise<string> {
     // 30% 概率保持沉默
     if (this.rand() < 0.3) return '';
-    return talkFromPool(this.rand);
+    return talkFromPool(this.rand, ctx.outcome);
   }
 
   async decide(ctx: DecisionRequest): Promise<Decision> {

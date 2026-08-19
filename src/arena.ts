@@ -424,12 +424,22 @@ export class Arena {
     const eliminatedCount = bustedNow.length + (bottomEliminated ? 1 : 0);
     for (let i = 0; i < eliminatedCount; i++) this.raiseBlinds();
 
-    // 每手结束：存活 AI 各说一句话（记录进嘴炮历史，供后续决策的心理战）
+    // 每手结束：存活 AI 各说一句话（贴合各自本手表现；记录进嘴炮历史供心理战）
     if (!this.stopRequested) {
       const situation = `第 ${this.handNumber} 手结束，${resultText || '无人摊牌'}。`;
       for (const id of this.aliveIds) {
         const agent = this.agentById(id);
-        const msg = await agent.talk({ playerName: agent.currentName, situation });
+        // 计算该玩家本手的表现（胜/负/弃牌）
+        const isWinner = result?.winners.some((w) => w.playerId === id) ?? false;
+        const startStack = seeds.find((x) => x.id === id)?.stack ?? 0;
+        const nowStack = this.stacks.get(id) ?? 0;
+        const outcome: 'win' | 'lose' | 'fold' = isWinner ? 'win' : nowStack < startStack ? 'lose' : 'fold';
+        const myText = isWinner
+          ? '你赢下了这手底池，春风得意。'
+          : nowStack < startStack
+            ? `你输了这手，输掉了 ${startStack - nowStack} 筹码。`
+            : '你这手弃牌了，没有投入更多。';
+        const msg = await agent.talk({ playerName: agent.currentName, situation: `${situation}\n你的表现：${myText}`, outcome });
         if (msg) {
           this.recordTalk(agent, msg);
           this.emit({ type: 'table_talk', playerId: id, message: msg });

@@ -4,6 +4,8 @@ export interface TalkContext {
   playerName: string;
   /** 本手结果的简短中文描述（公开信息） */
   situation: string;
+  /** 我在这手的表现（胜/负/弃牌），让发言贴合结果 */
+  outcome?: 'win' | 'lose' | 'fold';
 }
 
 /** 嘴炮 Prompt（极简，可沉默） */
@@ -43,13 +45,27 @@ export function parseTalk(text: string): string {
   }
 }
 
-const TALK_POOL = [
-  '这手打得不错。', '运气也是实力的一部分。', '继续跟，我爱你们。', '看到了吗？',
-  '下次别这样了。', '今晚手感不错。', '你们都是来陪跑的吧？', '数学是不会骗人的。',
-  '沉默是金。', '这底池我笑纳了。', '谁把筹码借我一下？', '牌桌如战场。',
-];
+const TALK_POOL: Record<string, string[]> = {
+  win: [
+    '看到了吗？这就是差距。', '谢谢你的筹码。', '运气也是实力的一部分。', '这底池我笑纳了。',
+    '继续喂我。', '我早就看穿你们了。', '今晚手感不错。',
+  ],
+  lose: [
+    '运气游戏而已。', '这河牌真伤。', '下把赢回来。', '你管这叫技术？', '河牌之神今天站在你那边。',
+    '不慌，一把而已。', '我记住你了。',
+  ],
+  fold: [
+    '这手没意思。', '让你们一局。', '保存实力。', '还没轮到我出手。',
+    '省点筹码，后面算总账。', '这手没我的戏份。',
+  ],
+  other: [
+    '这手打得不错。', '谁把筹码借我一下？', '牌桌如战场。', '沉默是金。',
+    '数学是不会骗人的。', '你们都是来陪跑的吧？',
+  ],
+};
 
-/** 启发式兜底：随机一句 */
-export function talkFromPool(rng: () => number): string {
-  return TALK_POOL[Math.floor(rng() * TALK_POOL.length)]!;
+/** 启发式兜底：按本手结果挑一句 */
+export function talkFromPool(rng: () => number, outcome?: TalkContext['outcome']): string {
+  const pool = TALK_POOL[outcome ?? 'other'] ?? TALK_POOL.other!;
+  return pool[Math.floor(rng() * pool.length)]!;
 }
