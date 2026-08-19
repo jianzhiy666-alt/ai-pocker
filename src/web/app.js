@@ -132,7 +132,11 @@ async function openPlayerModal(playerId) {
     $('#pm-name').textContent = `${player.name}（${playerId}）`;
     const sel = $('#pm-provider');
     sel.innerHTML = '';
-    const options = [['heuristic', '启发式机器人（本地）'], ...data.providers.map((p) => [p.name, p.label])];
+    const options = [
+      ['human', '🧑 人类玩家操控'],
+      ['heuristic', '🤖 启发式机器人（本地）'],
+      ...data.providers.map((p) => [p.name, p.label]),
+    ];
     for (const [val, label] of options) {
       const opt = document.createElement('option');
       opt.value = val;
