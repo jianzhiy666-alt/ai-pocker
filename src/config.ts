@@ -17,6 +17,8 @@ export const config = {
   actionDelayMs: Number(process.env.ACTION_DELAY_MS ?? 700),
   /** 每 N 手末尾淘汰筹码最少者（与筹码清零淘汰并行，加速比赛） */
   eliminateBottomEvery: Number(process.env.ELIMINATE_BOTTOM_EVERY ?? 5),
+  /** 人类玩家单次操作超时（毫秒）：超时自动弃牌/过牌，防止真人离席卡死整场淘汰赛 */
+  humanTimeoutMs: Number(process.env.HUMAN_TIMEOUT_MS ?? 90_000),
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 45_000),
   /** 本地代理（VPN/ClashX），所有 LLM 调用统一走它；Gemini 需要美国节点 */
   proxy: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.http_proxy || '',

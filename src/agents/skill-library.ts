@@ -28,11 +28,27 @@ function preflopGuide(req: DecisionRequest): string {
   const range = PREFLOP_RANGES[req.position] ?? PREFLOP_RANGES['庄位(BTN)']!;
   const cheap = req.toCall > 0 && req.toCall <= req.bb * 2.5;
   const goodPos = req.position.includes('庄') || req.position.includes('关位');
+  const effBB = (req.stack + req.committed) / req.bb; // 有效筹码（BB）
+  const vsRaise = req.toCall > 0;
   const lines = [
     '【技能库·翻前范围】',
     range,
-    '提示：位置越靠后范围越宽；面对加注收紧范围；筹码越浅（低于 20 BB）越倾向全下或弃牌。',
+    `筹码深度：你有效筹码约 ${effBB.toFixed(0)} BB。`,
   ];
+  if (effBB <= 12) {
+    lines.push('⚠️ 短码推/弃模式：筹码 < 12 BB 时只有强牌（大对子/AK/AQ）才推全下或跟注，垃圾牌直接弃，别慢性消耗。');
+  } else {
+    lines.push('深码提示：位置越靠后范围越宽；面对加注收紧范围；有效筹码 < 25 BB 时避免用边缘牌跟注大额加注。');
+  }
+  if (vsRaise) {
+    lines.push('【3-bet 指导】面对加注：');
+    lines.push('- 价值 3-bet：QQ+/AK/AQ 面对松手加注，3-bet 到对手加注额的 ~3 倍；对手跟注后翻牌中顶对继续下注');
+    lines.push('- 偶尔诈唬 3-bet：同花连牌/小对子面对紧手偷盲，但频率低、别上头');
+    lines.push(`- 对手加注大（> ${Math.max(3, Math.round(effBB * 0.25))} BB 或超过你筹码 1/4）：没有强牌就别跟，弃牌不丢人`);
+    lines.push('- 你跟注后翻牌没中：被 3-bet 过的底池很大，诈唬对手弃牌率高，可以持续施压');
+  } else {
+    lines.push('开池/偷盲：后位（庄/关）可用很宽的范围加注偷盲；中前位只用范围表内的牌入池。');
+  }
   // 观赏性补充：小同花/同花连牌在位置好且成本低时可以入池赌听花
   if (goodPos && cheap) {
     lines.push('补充：你现在位置好且跟注成本不高（≤2.5 BB），小同花牌、同花连牌、连张牌（如 37s、68s、T9s）都可以跟注看翻牌赌听花/顺子，这很划算。');
@@ -93,18 +109,18 @@ export function analyzeDraws(holeCards: Card[], board: Card[]): DrawInfo {
   return { flushDraw, straightType, straightOuts: outs, totalOuts };
 }
 
-/** 翻后技能库建议（按成牌强度分类 + 听牌分析） */
+/** 翻后技能库建议（按成牌强度分类 + 听牌分析 + 下注尺度 + 对手调整） */
 function postflopGuide(req: DecisionRequest): string {
   const result = evaluate7([...req.holeCards, ...req.communityCards]);
   const cat = result.category; // 0=高牌 ... 8=同花顺
   let advice: string;
-  if (cat >= 6) advice = `成牌很强（${result.name}），大胆下注拿价值，底池越大越敢打重注。`;
-  else if (cat === 5) advice = '同花成牌，下注拿价值；若公对牌面（有葫芦可能）要谨慎。';
-  else if (cat === 4) advice = '顺子成牌，下注拿价值；若四同花牌面要谨慎。';
-  else if (cat === 3) advice = '三条成牌，下注拿价值。';
-  else if (cat === 2) advice = '两对成牌，下注保护手牌；牌面潮湿（有顺子/同花可能）下注要更重。';
-  else if (cat === 1) advice = '只有一对：有位置可以下注保护，无位置控池过牌，面对大注谨慎。';
-  else advice = '没成牌：对手频繁过牌示弱可以诈唬偷池；有同花/顺子听牌可按底池赔率跟注；否则弃牌。';
+  if (cat >= 6) advice = `成牌很强（${result.name}），大胆下注拿价值，底池越大越敢打重注（60-80% 底池）。`;
+  else if (cat === 5) advice = '同花成牌，下注拿价值（60-75% 底池）；若公对牌面（有葫芦可能）要谨慎。';
+  else if (cat === 4) advice = '顺子成牌，下注拿价值（60-75% 底池）；若四同花牌面要谨慎。';
+  else if (cat === 3) advice = '三条成牌，下注拿价值（55-70% 底池）。';
+  else if (cat === 2) advice = '两对成牌，下注保护手牌（50-65% 底池）；牌面潮湿（有顺子/同花可能）下注要更重。';
+  else if (cat === 1) advice = '只有一对：顶对/超对（有位置）下注 40-55% 底池保护；无位置控池过牌，面对大注谨慎。';
+  else advice = '没成牌：对手频繁过牌示弱可以诈唬偷池（40-60% 底池）；有同花/顺子听牌可按底池赔率跟注或半诈唬；否则弃牌。';
 
   // 听牌分析（显式告诉模型当前有什么可买的牌）
   const draws = analyzeDraws(req.holeCards, req.communityCards);
@@ -115,12 +131,30 @@ function postflopGuide(req: DecisionRequest): string {
     if (draws.straightType === 'open-ended') parts.push('两头顺听（8 张）');
     else if (draws.straightType === 'gutshot') parts.push('卡顺听（4 张）');
     const winPct = Math.min(100, (draws.totalOuts * 2 + 2)); // 翻牌后约 2%/out（一条街）
-    drawLine = `你的听牌：${parts.join('、')}（共 ${draws.totalOuts} 张成牌牌，约 ${winPct}% 胜率）——听牌跟注要在底池赔率合理时进行，成牌后大胆拿价值。`;  }
+    drawLine = `你的听牌：${parts.join('、')}（共 ${draws.totalOuts} 张成牌牌，约 ${winPct}% 胜率）——听牌跟注要在底池赔率合理时进行，成牌后大胆拿价值。`;
+  }
 
   const potOddsHint = req.toCall > 0
     ? `跟注 ${req.toCall} 需要 ${(req.toCall / (req.pot + req.toCall) * 100).toFixed(0)}% 左右的胜率才划算。`
     : '当前免费看牌（无跟注压力）。';
-  const lines = [`【技能库·翻后指导】${advice}`, drawLine, `提示：${potOddsHint}`].filter(Boolean);
+
+  // 对手松紧调整
+  const opps = (req.opponentStats ?? []).filter((s) => s.hands > 0);
+  const avgVPIP = opps.length ? opps.reduce((a, s) => a + s.vpip, 0) / opps.length : 40;
+  const oppHint = avgVPIP >= 45
+    ? '对手偏松（平均 VPIP 高）：他们跟注多，少诈唬、薄价值下注照打，拿价值别怕被跟。'
+    : avgVPIP < 28
+      ? '对手偏紧（平均 VPIP 低）：他们弃牌多，可以多偷池、多持续下注（c-bet）施压。'
+      : '对手松紧适中，按标准策略打。';
+
+  const lines = [
+    `【技能库·翻后指导】${advice}`,
+    drawLine,
+    `提示：${potOddsHint}`,
+    oppHint,
+    '【下注尺度】价值下注 50-75% 底池，诈唬 40-60% 底池；听牌半诈唬 50% 左右。牌面越湿（同花/顺子可能多）下注越重。',
+    '【持续下注】翻牌前你加注过、翻牌后对手过牌：无论是否中牌，60-70% 情况持续下注（c-bet 2/3 底池），有位置更应下注；无位置对中等牌过牌控池。',
+  ].filter(Boolean);
   return lines.join('\n');
 }
 

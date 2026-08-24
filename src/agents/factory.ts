@@ -32,7 +32,7 @@ export function buildAgents(entries: PlayerConfigEntry[]): PlayerAgent[] {
     const id = e.id ?? `player${i + 1}`;
     const providerName = (e.provider ?? 'heuristic') as ProviderName | 'heuristic' | 'human';
     if (providerName === 'human') {
-      return new HumanAgent({ id, name: e.name });
+      return new HumanAgent({ id, name: e.name, timeoutMs: config.humanTimeoutMs });
     }
     if (providerName === 'heuristic') {
       return new HeuristicAgent({ id, name: e.name, seed: i + 1 });

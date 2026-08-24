@@ -6,6 +6,7 @@ const RED_SUITS = new Set(['♥', '♦']);
 
 const state = {
   players: new Map(), // id -> {id,name,color,kind,model,stack,hole:[],folded,allIn,committed,isDealer,isSB,isBB,lastAction,busted,rank}
+  humanIds: [], // 当前同桌的人类玩家座位 id（可多个）
   handNumber: 0,
   level: 1,
   sb: 10,
@@ -16,6 +17,10 @@ const state = {
   started: false,
   elimEvery: 5, // 每 N 局末尾淘汰（从后端读取）
 };
+
+// 我的座位：每台设备选一个真人座位（localStorage 记住），纯观战为 null
+let mySeat = localStorage.getItem('poker-seat') || null;
+let viewerParam = mySeat || 'spectator';
 
 // 读取淘汰循环配置
 fetch('/api/status')
@@ -73,13 +78,19 @@ function cardBackEl() {
   return d;
 }
 
-/* 渲染座位底牌：有人类玩家时隐藏 AI 底牌（公平对战），摊牌时(force)亮牌 */
+/* 渲染座位底牌：
+ * - 有真人同桌时，只显示"我的座位"的底牌；其它真人/AI 底牌盖住（服务器也只发了我的）
+ * - 纯 AI 对局（无真人）：观战者全部可见
+ * - 摊牌时(force)全部亮牌（showdown 事件统一发放）
+ */
 function renderHole(seat, p, force = false) {
   const hole = seat.querySelector('.hole');
   hole.innerHTML = '';
-  const hide = state.humanId && p.id !== state.humanId && !force;
-  for (const c of p.hole) {
-    hole.appendChild(hide ? cardBackEl() : cardEl(c, true));
+  const humansPresent = state.humanIds.length > 0;
+  const hide = humansPresent && p.id !== mySeat && !force;
+  const cards = hide || p.hole.length === 0 ? [null, null] : p.hole;
+  for (const c of cards) {
+    hole.appendChild(c ? cardEl(c, true) : cardBackEl());
   }
 }
 
@@ -88,8 +99,9 @@ function renderSeats() {
   seats.innerHTML = '';
   for (const p of state.players.values()) {
     const seat = document.createElement('div');
-    seat.className = 'seat';
+    seat.className = 'seat' + (p.id === mySeat ? ' mine' : '');
     seat.id = `seat-${p.id}`;
+    const humanMark = state.humanIds.includes(p.id) ? ' <span class="human-tag">👤</span>' : '';
     seat.innerHTML = `
       <div class="seat-inner">
         <div class="avatar" style="background:${p.color}">
@@ -98,7 +110,7 @@ function renderSeats() {
           <span class="badge sb" style="display:none">SB</span>
           <span class="badge bb" style="display:none">BB</span>
         </div>
-        <div class="name" title="${p.name}">${p.name}</div>
+        <div class="name" title="${p.name}">${p.name}${p.id === mySeat ? '<em class="mine-tag">（我）</em>' : ''}${humanMark}</div>
         <div class="seat-status"></div>
         <div class="model" title="${p.model}">${p.model}</div>
         <div class="stack">${p.stack}</div>
@@ -114,8 +126,12 @@ function renderSeats() {
     seats.appendChild(seat);
   }
   layoutSeats();
-  window.addEventListener('resize', layoutSeats);
+  if (!resizeBound) {
+    window.addEventListener('resize', layoutSeats);
+    resizeBound = true;
+  }
 }
+let resizeBound = false;
 
 /* ---------- 玩家配置弹窗 ---------- */
 let pmPlayerId = null;
@@ -312,8 +328,65 @@ function updateRankings() {
   });
 }
 
+/* ---------- 座位选择（多真人同桌：每台设备选自己的座位） ---------- */
+function setMySeat(seatId) {
+  mySeat = seatId || null;
+  viewerParam = mySeat || 'spectator';
+  if (mySeat) localStorage.setItem('poker-seat', mySeat);
+  else localStorage.removeItem('poker-seat');
+  $('#seat-overlay').classList.add('hidden');
+  // 重连 SSE：服务器按新 viewer 过滤底牌（只发我这个座位的）
+  reconnect();
+  // 若已有牌桌，立即刷新座位标记与底牌显示
+  for (const p of state.players.values()) updateSeat(p);
+  const chip = $('#btn-seat');
+  const chipName = $('#seat-chip-name');
+  if (mySeat && state.humanIds.includes(mySeat)) {
+    const me = state.players.get(mySeat);
+    chipName.textContent = me ? me.name : mySeat;
+    chip.classList.remove('hidden');
+  } else {
+    chip.classList.add('hidden');
+  }
+  const tip = $('#seat-tip');
+  if (mySeat && !state.humanIds.includes(mySeat)) {
+    tip.textContent = '⚠️ 这个座位现在不是人类玩家了（可能被改成 AI），请重选。';
+  } else if (!mySeat) {
+    tip.textContent = '👁 观战模式：底牌全部盖住（有真人同桌时）。';
+  }
+}
+
+async function openSeatOverlay() {
+  const tip = $('#seat-tip');
+  tip.textContent = '';
+  const list = $('#seat-list');
+  let humans = [];
+  try {
+    const data = await (await fetch('/api/players')).json();
+    humans = data.players.filter((p) => p.provider === 'human');
+  } catch (err) {
+    console.error('读取玩家配置失败', err);
+  }
+  // 在 await 之后清空再填充，避免多次并发调用（页面加载 + game_start）竞态导致选项重复
+  list.innerHTML = '';
+  if (humans.length === 0) {
+    list.innerHTML = '<div class="seat-none">当前没有人类玩家座位。<br>点击任意座位头像 → 把 Provider 改为「🧑 人类玩家操控」后保存，真人即可加入。</div>';
+  } else {
+    for (const h of humans) {
+      const btn = document.createElement('button');
+      btn.className = 'seat-option' + (h.id === mySeat ? ' selected' : '');
+      btn.innerHTML = `<span class="so-avatar">${h.name[0]}</span><span class="so-name">${h.name}</span><span class="so-sub">${h.id}${h.id === mySeat ? ' · 当前选择' : ''}</span>`;
+      btn.addEventListener('click', () => setMySeat(h.id));
+      list.appendChild(btn);
+    }
+  }
+  $('#seat-overlay').classList.remove('hidden');
+}
+
+$('#seat-spectate').addEventListener('click', () => setMySeat(null));
+$('#btn-seat').addEventListener('click', openSeatOverlay);
+
 /* ---------- 人类玩家操作面板 ---------- */
-let humanId = null;
 let hpRequest = null;
 
 function showHumanPanel(req) {
@@ -352,10 +425,11 @@ function updateRaiseVal() {
 }
 
 function submitHuman(action, raiseTo) {
+  if (!mySeat) return;
   fetch('/api/human-action', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId: humanId, action, raiseTo }),
+    body: JSON.stringify({ playerId: mySeat, action, raiseTo }),
   })
     .then((r) => r.json())
     .then((j) => {
@@ -396,8 +470,21 @@ function handleEvent(evt) {
           isDealer: false, isSB: false, isBB: false, lastAction: null, busted: false, isActive: false,
         });
       }
-      humanId = evt.players.find((p) => p.kind === 'human')?.id ?? null;
+      state.humanIds = evt.players.filter((p) => p.kind === 'human').map((p) => p.id);
       hideHumanPanel();
+      // 我的座位失效（被改成 AI 等）→ 清除并重新选座；有真人同桌但还没选 → 弹选座
+      if (mySeat && !state.humanIds.includes(mySeat)) {
+        mySeat = null;
+        viewerParam = 'spectator';
+        localStorage.removeItem('poker-seat');
+        reconnect();
+      }
+      $('#btn-seat').classList.toggle('hidden', !(mySeat && state.humanIds.includes(mySeat)));
+      if (mySeat && state.humanIds.includes(mySeat)) {
+        const me = state.players.get(mySeat);
+        $('#seat-chip-name').textContent = me ? me.name : mySeat;
+      }
+      if (state.humanIds.length > 0 && !mySeat) openSeatOverlay();
       state.started = true;
       state.handNumber = 0;
       state.community = [];
@@ -411,12 +498,7 @@ function handleEvent(evt) {
     case 'blind_change':
       state.level = evt.level; state.sb = evt.sb; state.bb = evt.bb;
       renderLevel();
-      addLog(`📢 盲注升级：L${evt.level} SB ${evt.sb} / BB ${evt.bb}`, 'system');
-      break;
-    case 'blind_change':
-      state.level = evt.level; state.sb = evt.sb; state.bb = evt.bb;
-      renderLevel();
-      addLog(`📢 淘汰后盲注升级：SB ${evt.sb} / BB ${evt.bb}`, 'system');
+      addLog(`📢 淘汰后盲注升级：L${evt.level} SB ${evt.sb} / BB ${evt.bb}`, 'system');
       break;
     case 'hand_start': {
       state.handNumber = evt.handNumber;
@@ -455,11 +537,12 @@ function handleEvent(evt) {
       const p = state.players.get(evt.playerId);
       if (p) {
         p.isActive = true;
-        // 明确提示轮到谁行动（思考中的玩家）
-        addLog(`▶ 轮到 <span class="who" style="color:${p.color}">${p.name}</span> 行动…`, 'turn');
+        // 明确提示轮到谁行动（思考中的玩家 / 等待真人操作）
+        const humanWait = state.humanIds.includes(evt.playerId) ? '（等待真人操作…）' : '';
+        addLog(`▶ 轮到 <span class="who" style="color:${p.color}">${p.name}</span> 行动… ${humanWait}`, 'turn');
       }
-      // 轮到人类 → 显示操作面板
-      if (evt.playerId === humanId) showHumanPanel(evt.request);
+      // 只有"我的座位"轮到行动时才弹操作面板；其它真人/AI 行动时不打扰
+      if (evt.playerId === mySeat) showHumanPanel(evt.request);
       else hideHumanPanel();
       for (const q of state.players.values()) updateSeat(q);
       break;
@@ -493,7 +576,7 @@ function handleEvent(evt) {
       p.allIn = evt.allIn;
       state.pot = evt.pot;
       updateSeat(p);
-      if (evt.playerId === humanId) hideHumanPanel();
+      if (evt.playerId === mySeat) hideHumanPanel();
       renderCommunity();
       const actionText = evt.action === 'raise' ? `加注到 ${evt.committed}` : evt.action === 'all_in' ? `全下 ${evt.committed}` : evt.action === 'call' ? `跟注 ${evt.amount}` : evt.action === 'check' ? '过牌' : '弃牌';
       addLog(`<span class="who" style="color:${p.color}">${p.name}</span> ${actionText}`, 'action');
@@ -610,9 +693,11 @@ $('#speed').addEventListener('change', (e) => control('speed', Number(e.target.v
 /* ---------- SSE ---------- */
 // 重放模式：历史事件静默恢复状态，不打日志（避免"瞬间全部冒出"的错觉）
 let silentMode = false;
+let es = null;
 
 function connect() {
-  const es = new EventSource('/api/events');
+  // viewer=<我的座位|spectator>：服务器按座位过滤底牌，保证两台设备互不泄露
+  es = new EventSource(`/api/events?viewer=${encodeURIComponent(viewerParam)}`);
   const conn = $('#conn');
   es.onopen = () => { conn.textContent = '● 已连接'; conn.className = 'conn on'; };
   es.onerror = () => { conn.textContent = '○ 重连中…'; conn.className = 'conn off'; };
@@ -633,4 +718,23 @@ function connect() {
     }
   };
 }
+
+function reconnect() {
+  if (es) es.close();
+  connect();
+}
+
+// 页面加载：有真人座位且我还没选（或选的座位失效）→ 弹出选座
+(async () => {
+  try {
+    const data = await (await fetch('/api/players')).json();
+    const humans = data.players.filter((p) => p.provider === 'human');
+    if (humans.length > 0 && !(mySeat && humans.some((h) => h.id === mySeat))) {
+      openSeatOverlay();
+    }
+  } catch {
+    // 网络异常时跳过，等 game_start 事件再弹
+  }
+})();
+
 connect();

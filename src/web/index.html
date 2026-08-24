@@ -27,8 +27,20 @@
       </label>
       <span id="mode" class="mode"></span>
       <span id="conn" class="conn">连接中…</span>
+      <button id="btn-seat" class="seat-chip hidden" title="切换我的座位">🎮 <span id="seat-chip-name"></span></button>
     </div>
   </header>
+
+  <!-- 座位选择：多真人同桌时，每台设备选自己的座位（互看不到对方底牌） -->
+  <div id="seat-overlay" class="seat-overlay hidden">
+    <div class="seat-box">
+      <h2>🎮 选择你的座位</h2>
+      <p class="seat-sub">每个玩家用自己的设备选自己的座位，<b>互看不到对方底牌</b>（公平对战）。选好后，轮到你的座位行动时会弹出操作面板。</p>
+      <div id="seat-list" class="seat-list"></div>
+      <button id="seat-spectate" class="seat-spectate">👁 纯观战（不参与，能看到全部公开信息）</button>
+      <div id="seat-tip" class="seat-tip"></div>
+    </div>
+  </div>
 
   <main>
     <section id="table-wrap">

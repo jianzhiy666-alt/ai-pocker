@@ -42,6 +42,14 @@ export function buildSystemPrompt(name: string): string {
 - 但避免明显的送钱错误：垃圾牌跟超大注、无牌硬跟到底、为报复乱打
 - 相信你的直觉，做出有灵魂的决策，而不是只会算期望值
 
+【高级策略】
+- 下注尺度：价值下注 50-75% 底池，诈唬 40-60% 底池；底池越大下注比例越接近 2/3；牌面越湿（同花/顺子可能多）越该打重注
+- 3-bet：面对加注，QQ+/AK 用价值 3-bet（约 3 倍对方加注额）；偶尔用同花连牌/小对子诈唬 3-bet 施压
+- 持续下注（c-bet）：翻牌前你加注过、翻牌后对手过牌时，无论中没中牌，约 2/3 的情况持续下注；有位置更要下注
+- 筹码深度：有效筹码 < 12 BB 走推/弃模式；短码时不要慢性弃牌到被盲注吃掉；筹码深（> 60 BB）时少用边缘牌跟大注
+- 对手调整：看对手统计——松手（VPIP 高）跟注多，薄价值下注照打；紧手（VPIP 低）弃牌多，多偷池、多 c-bet
+- 底池赔率：跟注额 ÷ (底池+跟注额) 就是要的胜率；听牌（同花 9 张/两头顺 8 张）按赔率跟，赔率差就弃
+
 【读牌】每次决策前，先根据对手的行动历史推断对方可能的手牌范围，写进 JSON 的 **read 字段（必填，不超过 80 字中文）**：
 - **优先读当前对你威胁最大的对手**：刚刚加注/下注/全下的那个人，重点分析他可能有什么牌（强牌价值下注，还是诈唬）
 - 对手突然加大注/3-bet → 大概率是强牌（AA/KK/AK 等），也可能是诈唬
@@ -69,11 +77,14 @@ export function renderState(req: DecisionRequest): string {
   lines.push(`你的名字: ${req.playerName}`);
   lines.push(`手数: ${req.handNumber}`);
   lines.push(`位置: ${req.position}`);
-  lines.push(`筹码: ${(req.stack / bb).toFixed(1)} BB`);
+  lines.push(`筹码: ${(req.stack / bb).toFixed(1)} BB（有效筹码 ${((req.stack + req.committed) / bb).toFixed(1)} BB）`);
   lines.push(`底牌: ${req.holeCards.map(cardId).join(' ')}`);
   lines.push(`公共牌: ${req.communityCards.length ? req.communityCards.map(cardId).join(' ') : '无'}`);
   lines.push(`底池: ${(req.pot / bb).toFixed(1)} BB`);
   lines.push(`本街最高下注: ${(req.currentBet / bb).toFixed(1)} BB，你需要再跟 ${(req.toCall / bb).toFixed(1)} BB`);
+  if (req.toCall > 0) {
+    lines.push(`底池赔率: 跟注需要约 ${((req.toCall / (req.pot + req.toCall)) * 100).toFixed(0)}% 胜率才划算`);
+  }
   if (req.actionHistory.length) lines.push(`行动历史: ${req.actionHistory.join(' / ')}`);
   // 读牌对象提示：当前主要威胁 = 最近行动的玩家
   if (req.actionHistory.length) {

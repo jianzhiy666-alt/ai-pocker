@@ -1,0 +1,31 @@
+# Render Blueprint — 一键部署 AI 扑克擂台
+# 用法：push 到 GitHub → Render Dashboard 新建 Blueprint → 选择本仓库 → 填 API key 环境变量 → Deploy
+# 或直接点：https://render.com/new/blueprint?repository=<你的仓库URL>
+services:
+  - type: web
+    name: ai-poker-arena
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # 真人单次操作超时（毫秒）：超时自动弃牌/过牌，防止挂机卡死比赛
+      - key: HUMAN_TIMEOUT_MS
+        value: "90000"
+      # ---- 各 provider 的 API key：在 Render Dashboard → Environment 里填写（sync:false 表示不写死在仓库）----
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DASHSCOPE_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: XAI_API_KEY
+        sync: false

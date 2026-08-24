@@ -52,6 +52,11 @@ export class GameRunner extends EventEmitter {
     return this.agents.length;
   }
 
+  /** 当前人类玩家座位 id 列表（多真人同桌；供 SSE 按座位过滤底牌） */
+  getHumanIds(): string[] {
+    return this.agents.filter((a) => a.kind === 'human').map((a) => a.id);
+  }
+
   /** 从 players.json/.env 重新加载选手配置并重启比赛（网页端改配置后调用） */
   reloadAgents(): void {
     this.agents = buildAgents(loadPlayerConfigs());

@@ -27,9 +27,19 @@ runner.on('event', (evt) => {
 });
 
 const app = createServer(runner);
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`\n🤠 AI 扑克擂台 v0.1: http://localhost:${config.port}`);
-  console.log(`   6-Max NLHE | 100 BB 起步不重置 | 盲注 ${config.bb / 2}/${config.bb} 固定 | 输光淘汰 | 最后一人获胜`);
+  console.log(`   6-Max NLHE | 100 BB 起步不重置 | 输光淘汰 | 最后一人获胜`);
   console.log(`   选手: ${agents.map((a) => a.name).join('、')}\n`);
   runner.start();
 });
+
+// 优雅停机（Render 等平台部署/重启时发送 SIGTERM）：先停比赛，再关服务
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    console.log(`\n收到 ${sig}，正在停止比赛并关闭服务器…`);
+    runner.stop();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}
