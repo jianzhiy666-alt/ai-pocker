@@ -64,12 +64,21 @@ main {
 }
 
 /* ---------- 牌桌 ---------- */
-#table-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+#table-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease;
+}
+/* 操作面板弹出时：牌桌上移，避免底栏遮挡座位/底牌（手机端尤其重要） */
+body.panel-open #table-wrap { transform: translateY(calc(-1 * min(150px, 26vh))); }
 #table {
   position: relative;
   width: min(88vh, 96%);
   height: min(88vh, 96%);
   aspect-ratio: 1;
+  transition: width 0.25s ease, height 0.25s ease;
 }
 #table::before {
   content: "";
@@ -493,4 +502,30 @@ main {
   main { grid-template-columns: 1fr; grid-template-rows: auto 260px; }
   #table { width: min(80vw, 80vh); height: min(80vw, 80vh); }
   body { overflow: auto; }
+
+  /* ---- 手机端：操作面板紧凑化，不再横向溢出，尽量少挡视线 ---- */
+  .human-panel {
+    min-width: 0;
+    width: calc(100vw - 12px);
+    left: 50%; bottom: 6px;
+    transform: translateX(-50%);
+    padding: 7px 10px 9px;
+    border-radius: 12px;
+  }
+  .human-panel .card { width: 36px; height: 50px; font-size: 13px; border-radius: 5px; }
+  .hp-head { font-size: 12.5px; margin-bottom: 4px; }
+  .hp-situation { font-size: 11.5px; }
+  .hp-cards { margin-bottom: 5px; }
+  .hp-btns { gap: 6px; }
+  .hp-btns button { padding: 9px 13px; font-size: 12.5px; border-radius: 8px; }
+  .hp-raise-wrap { gap: 5px; }
+  .hp-raise-wrap input { width: 92px; }
+  .hp-raise-val { font-size: 11.5px; padding: 6px 8px; min-width: 52px; }
+
+  /* 面板弹出时：牌桌进一步缩小并上移，保证所有座位和底牌完整可见 */
+  body.panel-open #table {
+    width: min(72vw, calc(100dvh - 220px));
+    height: min(72vw, calc(100dvh - 220px));
+  }
+  body.panel-open #table-wrap { transform: translateY(calc(-1 * min(120px, 20vh))); }
 }

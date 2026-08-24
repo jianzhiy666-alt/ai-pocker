@@ -416,10 +416,13 @@ function showHumanPanel(req) {
   }
   $('#hp-allin').style.display = req.legalActions.includes('all_in') ? '' : 'none';
   $('#human-panel').classList.remove('hidden');
+  // 面板弹出：牌桌上移/缩小，保证座位和底牌不被遮挡（手机端尤其重要）
+  document.body.classList.add('panel-open');
 }
 
 function hideHumanPanel() {
   $('#human-panel').classList.add('hidden');
+  document.body.classList.remove('panel-open');
 }
 
 function updateRaiseVal() {
