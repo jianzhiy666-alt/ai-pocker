@@ -337,8 +337,12 @@ function setMySeat(seatId) {
   $('#seat-overlay').classList.add('hidden');
   // 重连 SSE：服务器按新 viewer 过滤底牌（只发我这个座位的）
   reconnect();
-  // 若已有牌桌，立即刷新座位标记与底牌显示
-  for (const p of state.players.values()) updateSeat(p);
+  // 若已有牌桌，立即刷新座位高亮与底牌显示（中途选座也要即时生效）
+  for (const p of state.players.values()) {
+    const seat = document.getElementById(`seat-${p.id}`);
+    if (seat) seat.classList.toggle('mine', p.id === mySeat);
+    updateSeat(p);
+  }
   const chip = $('#btn-seat');
   const chipName = $('#seat-chip-name');
   if (mySeat && state.humanIds.includes(mySeat)) {
